@@ -1,0 +1,7 @@
+{
+  "name": "atlas-os",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Atlas OS: Ricardo's standalone personal AI command center (Stage 1).",
+  "type": "module"
+}
