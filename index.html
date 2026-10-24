@@ -7,8 +7,8 @@
 <meta name="apple-mobile-web-app-title" content="Atlas">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="manifest" href="/manifest.json">
-<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
-<link rel="icon" href="/icons/icon-192.png">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="icon" href="/icon-192.png">
 <meta name="theme-color" content="#020818">
 <title>Atlas OS</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -720,8 +720,8 @@ body.focus .c-over,body.focus .c-agents,body.focus .c-time,body.focus .c-quick,b
 
   let busy = false, voiceOn = store.get('atlas.voice', true);
   $('#voice').setAttribute('aria-pressed', String(voiceOn));
-  $('#voice').addEventListener('click', () => { voiceOn = !voiceOn; store.set('atlas.voice', voiceOn); $('#voice').setAttribute('aria-pressed', String(voiceOn)); if (!voiceOn && TTS) speechSynthesis.cancel(); });
-  let key = store.get('atlas.key', ''), cloud = false;
+  $('#voice').addEventListener('click', () => { voiceOn = !voiceOn; store.set('atlas.voice', voiceOn); $('#voice').setAttribute('aria-pressed', String(voiceOn)); if (!voiceOn) stopSpeaking(); });
+  let key = store.get('atlas.key', ''), cloud = false, ttsServer = false;
   function offline(){ if (!feed.querySelector('.offline')){ const n = item('sys', 'SYSTEM', 'Atlas is locked. Enter your passcode to wake it.'); n.parentNode.classList.add('offline'); } }
   async function ping(k){
     try{ const r = await fetch('/api/ping', { headers:{ 'x-atlas-key': k } }); if (!r.ok) return null; return await r.json(); }catch(e){ return null; }
@@ -738,7 +738,7 @@ body.focus .c-over,body.focus .c-agents,body.focus .c-time,body.focus .c-quick,b
   async function wake(k){
     const p = await ping(k);
     if (!p) return false;
-    key = k; store.set('atlas.key', k); cloud = !!p.storage; sample = true;
+    key = k; store.set('atlas.key', k); cloud = !!p.storage; ttsServer = !!p.tts; sample = true;
     $('#lock').hidden = true; feed.querySelectorAll('.offline').forEach(n => n.remove());
     renderAll(); pullHistory(); return true;
   }
@@ -761,7 +761,40 @@ body.focus .c-over,body.focus .c-agents,body.focus .c-time,body.focus .c-quick,b
   }
 
   function pickVoice(){ if (!TTS) return null; const vs = speechSynthesis.getVoices(), gb = vs.filter(v => /en-GB/i.test(v.lang)); return gb.find(v => /daniel|arthur|george|oliver|male/i.test(v.name)) || gb[0] || vs.find(v => /^en/i.test(v.lang)) || null; }
-  function speak(text){ return new Promise(res => { if (!voiceOn || !TTS || !text) return res(); try{ speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(text), v = pickVoice(); if (v){ u.voice = v; u.lang = v.lang; } u.rate = .98; u.pitch = .9; u.onend = res; u.onerror = res; speechSynthesis.speak(u); }catch(e){ res(); } }); }
+  function speakBrowser(text){ return new Promise(res => { if (!TTS) return res(); try{ speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(text), v = pickVoice(); if (v){ u.voice = v; u.lang = v.lang; } u.rate = .98; u.pitch = .9; u.onend = res; u.onerror = res; speechSynthesis.speak(u); }catch(e){ res(); } }); }
+
+  // Human voice: audio from Atlas's server (ElevenLabs), played through Web Audio so phones allow it.
+  let actx = null, currentSrc = null;
+  function unlockAudio(){
+    try{
+      if (!actx){ const AC = window.AudioContext || window.webkitAudioContext; if (AC) actx = new AC(); }
+      if (actx && actx.state === 'suspended') actx.resume();
+    }catch(e){}
+  }
+  document.addEventListener('pointerdown', unlockAudio, { passive:true });
+  document.addEventListener('keydown', unlockAudio);
+  function stopSpeaking(){
+    if (currentSrc){ try{ currentSrc.stop(); }catch(e){} currentSrc = null; }
+    if (TTS) speechSynthesis.cancel();
+  }
+  async function speakHuman(text){
+    const r = await fetch('/api/speak', { method:'POST', headers:{ 'content-type':'application/json', 'x-atlas-key': key }, body: JSON.stringify({ text }) });
+    if (!r.ok) throw new Error('voice ' + r.status);
+    const data = await r.arrayBuffer();
+    unlockAudio();
+    if (!actx) throw new Error('no audio');
+    const audio = await new Promise((res, rej) => actx.decodeAudioData(data, res, rej));
+    return new Promise(res => {
+      const src = actx.createBufferSource(); src.buffer = audio; src.connect(actx.destination);
+      currentSrc = src; src.onended = () => { if (currentSrc === src) currentSrc = null; res(); };
+      src.start(0);
+    });
+  }
+  async function speak(text){
+    if (!voiceOn || !text) return;
+    if (ttsServer){ try{ await speakHuman(text); return; }catch(e){ /* fall back to the browser voice */ } }
+    await speakBrowser(text);
+  }
 
   async function send(text){
     text = (text || '').trim(); if (!text || busy) return;
@@ -792,7 +825,7 @@ body.focus .c-over,body.focus .c-agents,body.focus .c-time,body.focus .c-quick,b
     if (rec){ rec.stop(); return; }
     try{
       rec = new SRc(); rec.lang = 'en-US'; rec.interimResults = true; rec.continuous = false; let fin = '';
-      rec.onstart = () => { $('#mic').classList.add('rec'); $('#bigmic').classList.add('rec'); setState('listening'); if (TTS) speechSynthesis.cancel(); };
+      rec.onstart = () => { $('#mic').classList.add('rec'); $('#bigmic').classList.add('rec'); setState('listening'); stopSpeaking(); };
       rec.onresult = ev => { let interim = ''; for (const r of ev.results){ if (r.isFinal) fin = r[0].transcript; else interim += r[0].transcript; } input.value = fin || interim; };
       rec.onerror = ev => { if (ev.error === 'not-allowed' || ev.error === 'service-not-allowed') item('sys', 'SYSTEM', 'Microphone access is blocked on this page. Type your command instead.'); };
       rec.onend = () => { $('#mic').classList.remove('rec'); $('#bigmic').classList.remove('rec'); rec = null; if (state === 'listening') setState('idle'); if (fin){ input.value = ''; send(fin); } };
