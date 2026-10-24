@@ -184,6 +184,10 @@ button{cursor:pointer}
 .acts button{border:1px solid var(--line2);border-radius:8px;padding:7px 16px;font-size:12.5px;background:transparent;color:var(--blue)}
 .acts button.yes{background:var(--electric);color:#fff;border-color:var(--blue);box-shadow:0 0 12px rgba(47,140,255,.5)}
 .fi.ask{border-color:rgba(255,200,90,.6)}.fi.ask .lb{color:var(--gold)}
+.pcard{display:flex;align-items:center;gap:10px;margin-top:8px;padding:10px 12px;border:1px solid rgba(92,200,255,.5);border-radius:12px;background:rgba(47,140,255,.12);text-decoration:none;color:inherit;white-space:normal}
+.pcard:active{transform:scale(.98)}
+.pcard .pi{flex:none;width:36px;height:36px;border-radius:50%;display:grid;place-items:center;background:var(--electric);box-shadow:0 0 12px rgba(47,140,255,.6);font-size:16px}
+.pcard b{display:block;font-size:13.5px}.pcard small{display:block;color:var(--dim);font-size:11.5px;overflow:hidden;text-overflow:ellipsis}
 .thumbs img{width:56px;height:56px;border-radius:8px;object-fit:cover;border:1px solid var(--line)}
 .thumbs span{border:1px solid var(--line);border-radius:8px;padding:3px 8px;font-size:11px;font-family:var(--mono);color:var(--blue)}
 body.dropping .talk{border-color:var(--gold);box-shadow:0 0 28px rgba(255,200,90,.6)}
@@ -981,6 +985,33 @@ body.focus .c-over,body.focus .c-agents,body.focus .c-time,body.focus .c-quick,b
     txEl.parentNode.appendChild(row); feed.scrollTop = feed.scrollHeight;
   }
 
+  /* ---------- Phone action cards (one tap; nothing happens without it) ---------- */
+  const MARK = '\u001e';
+  function splitCards(t){
+    const cards = []; let clean = '';
+    const parts = (t || '').split(MARK);
+    parts.forEach((p, i) => { if (i % 2 === 0) clean += p; else { try{ cards.push(JSON.parse(p)); }catch(e){ /* card still streaming */ } } });
+    return { clean: clean.replace(/\s+$/,'').replace(/^\s+/,''), cards };
+  }
+  const isIOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  const ICONS = { call:'☎', text:'✉', email:'@', directions:'➤', link:'↗', shortcut:'⚡' };
+  function cardHref(c){
+    if (c.sms) return 'sms:' + c.sms.number + (c.sms.body ? (isIOS ? '&' : '?') + 'body=' + encodeURIComponent(c.sms.body) : '');
+    if (c.shortcut) return 'shortcuts://run-shortcut?name=' + encodeURIComponent(c.shortcut.name) + (c.shortcut.input ? '&input=text&text=' + encodeURIComponent(c.shortcut.input) : '');
+    return c.href;
+  }
+  function renderCards(txEl, cards, shown){
+    cards.forEach(c => {
+      if (!c || !c.id || shown.has(c.id)) return; shown.add(c.id);
+      const href = cardHref(c); if (!href || !/^(tel:|sms:|mailto:|https:|shortcuts:)/.test(href)) return;
+      const a = document.createElement('a'); a.className = 'pcard'; a.href = href;
+      if (href.startsWith('https:')) { a.target = '_blank'; a.rel = 'noopener'; }
+      a.innerHTML = '<span class="pi"></span><span style="min-width:0"><b></b><small></small></span>';
+      a.querySelector('.pi').textContent = ICONS[c.kind] || '↗'; a.querySelector('b').textContent = c.title || 'Open'; a.querySelector('small').textContent = c.sub || '';
+      txEl.parentNode.appendChild(a); feed.scrollTop = feed.scrollHeight;
+    });
+  }
+
   async function send(text){
     text = (text || '').trim();
     if (busy || preparing()) return;
@@ -998,9 +1029,13 @@ body.focus .c-over,body.focus .c-agents,body.focus .c-time,body.focus .c-quick,b
     if (innerWidth < 1280) $('.c-feed').scrollIntoView({block:'nearest', behavior: reduce ? 'auto' : 'smooth'});
     const msgs = history.slice(-16).map(m => ({ role:m.role, content:m.content }));
     try{
-      const full = await askBrain(msgs, txt => { out.textContent = txt; feed.scrollTop = feed.scrollHeight; }, attachments);
-      const reply = (full || '').trim() || 'Still here. Say that once more?';
-      out.textContent = reply; history.push({role:'assistant', content:reply, at:Date.now()}); history = history.slice(-60); store.set('atlas.history', history); pushHistory(); renderOverview(); renderMem();
+      const shown = new Set();
+      const full = await askBrain(msgs, txt => { const sc = splitCards(txt); out.textContent = sc.clean; renderCards(out, sc.cards, shown); feed.scrollTop = feed.scrollHeight; }, attachments);
+      const sc = splitCards(full); renderCards(out, sc.cards, shown);
+      const reply = sc.clean || (sc.cards.length ? 'Tap the button below.' : 'Still here. Say that once more?');
+      out.textContent = reply;
+      const stored = reply + (sc.cards.length ? '\n' + sc.cards.map(c => '[Button: ' + c.title + ']').join('\n') : '');
+      history.push({role:'assistant', content:stored, at:Date.now()}); history = history.slice(-60); store.set('atlas.history', history); pushHistory(); renderOverview(); renderMem();
       setState('speaking'); await speak(reply);
     }catch(e){
       history.pop(); out.parentNode.className = 'fi sys'; out.parentNode.querySelector('.lb span').textContent = 'SYSTEM';
