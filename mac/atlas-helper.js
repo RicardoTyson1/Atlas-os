@@ -8,7 +8,7 @@
 ObjC.import('Foundation');
 ObjC.import('stdlib');
 
-const VERSION = '1.0';
+const VERSION = '1.1';
 const app = Application.currentApplication();
 app.includeStandardAdditions = true;
 
@@ -139,9 +139,17 @@ const ACTIONS = {
       if (fm.moveItemAtPathToPathError(from, to, null)) moved.push({ name, folder: m.folder });
       else skipped.push(name + ': could not be moved');
     }
-    const stamp = new Date().toISOString().replace(/[:.]/g, '-');
-    writeFile(DIR + '/organize-' + stamp + '.json', JSON.stringify({ at: new Date().toISOString(), moved }, null, 1));
-    writeFile(DIR + '/organize-last', 'organize-' + stamp + '.json');
+    // Batches within 30 minutes belong to the same run, so one undo puts the whole run back.
+    let file = (readFile(DIR + '/organize-last') || '').trim(), run = null;
+    if (file) { try { run = JSON.parse(readFile(DIR + '/' + file) || 'null'); } catch (e) { run = null; } }
+    if (!run || Date.now() - new Date(run.updated || run.at).getTime() > 30 * 60 * 1000) {
+      file = 'organize-' + new Date().toISOString().replace(/[:.]/g, '-') + '.json';
+      run = { at: new Date().toISOString(), moved: [] };
+    }
+    run.moved = run.moved.concat(moved);
+    run.updated = new Date().toISOString();
+    writeFile(DIR + '/' + file, JSON.stringify(run, null, 1));
+    writeFile(DIR + '/organize-last', file);
     let text = 'Moved ' + moved.length + ' item' + (moved.length === 1 ? '' : 's') + ', skipped ' + skipped.length + '.';
     if (created.length) text += '\nCreated folders: ' + created.join(', ') + '.';
     if (moved.length) text += '\nMoved:\n' + moved.map(x => x.name + ' → ' + x.folder).join('\n');
