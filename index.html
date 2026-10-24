@@ -180,6 +180,10 @@ button{cursor:pointer}
 .att.busy{opacity:.7}.att.busy .ph{animation:pulse 1s ease-in-out infinite alternate}
 @keyframes pulse{from{opacity:.4}to{opacity:1}}
 .thumbs{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
+.acts{display:flex;gap:8px;margin-top:8px}
+.acts button{border:1px solid var(--line2);border-radius:8px;padding:7px 16px;font-size:12.5px;background:transparent;color:var(--blue)}
+.acts button.yes{background:var(--electric);color:#fff;border-color:var(--blue);box-shadow:0 0 12px rgba(47,140,255,.5)}
+.fi.ask{border-color:rgba(255,200,90,.6)}.fi.ask .lb{color:var(--gold)}
 .thumbs img{width:56px;height:56px;border-radius:8px;object-fit:cover;border:1px solid var(--line)}
 .thumbs span{border:1px solid var(--line);border-radius:8px;padding:3px 8px;font-size:11px;font-family:var(--mono);color:var(--blue)}
 body.dropping .talk{border-color:var(--gold);box-shadow:0 0 28px rgba(255,200,90,.6)}
@@ -391,7 +395,7 @@ body.focus .c-over,body.focus .c-agents,body.focus .c-time,body.focus .c-quick,b
     { id:'leads', name:'Lead hunter', status:'planned', tag:'Mark II', items:['Finds builders, property managers, venues','Spots businesses with weak websites','Drafts pitches for your approval'], via:'Web research, Google Maps' },
     { id:'memory', name:'Memory vault', status:'online', tag:'Online', items:['Remembers what you tell it','Files job photos, quotes and install docs','Searches past jobs and customers'], via:'Obsidian vault, synced through GitHub' },
     { id:'private', name:'Private brain', status:'planned', tag:'Mark III', items:['Local AI on your own computer','Handles health and family data privately','Works offline'], via:'Ollama or LM Studio' },
-    { id:'desktop', name:'Desktop control', status:'planned', tag:'Mark IV', items:['Opens apps, files and sites by voice','Volume up, down and mute','Clap or wake-word activation'], via:'Windows desktop app' },
+    { id:'desktop', name:'Desktop control', status:'online', tag:'Online', items:['Opens apps, files and sites from anywhere','Volume, media, lock screen, screenshots, Shortcuts','Organizes your Desktop, move-only with undo'], via:'Mac helper, Apple Shortcuts, Vocal Shortcuts' },
     { id:'media', name:'Media', status:'planned', tag:'Mark IV', items:['Plays, pauses and skips music','Learns your taste by time and mood','Right playlist for the drive'], via:'Spotify, YouTube' },
     { id:'social', name:'Social and reputation', status:'planned', tag:'Mark IV', items:['Posts your install photos','Replies to comments, DMs and reviews','Flags anything that needs you'], via:'Facebook, Instagram, Google Business' },
     { id:'markets', name:'Markets', status:'planned', tag:'Mark IV', items:['Bitcoin and stock watchlist','Price alerts to your phone','Never trades on its own'], via:'Market data feeds' },
@@ -399,7 +403,7 @@ body.focus .c-over,body.focus .c-agents,body.focus .c-time,body.focus .c-quick,b
     { id:'home', name:'Home', status:'planned', tag:'Mark V', items:['Lights, locks and thermostat','Cameras that know family from strangers','Arrive-home and leave-home scenes'], via:'Home Assistant' },
     { id:'everywhere', name:'Everywhere', status:'planned', tag:'Mark V', items:['iPhone Action Button and Back Tap','Standalone desktop and phone apps','CarPlay, watch and any screen'], via:'Native apps, Shortcuts' }
   ];
-  const CONNS = ['Claude','GoHighLevel','Gmail','Google Calendar','Telegram','n8n','Obsidian','Ollama','Spotify','Home Assistant','Apple Health','Square'];
+  const CONNS = ['Claude','MacBook','GoHighLevel','Gmail','Google Calendar','Telegram','n8n','Obsidian','Ollama','Spotify','Home Assistant','Apple Health','Square'];
   const NAV = [['Command center','grid','top'],['Core','core','sec-core'],['Agents','bot','sec-agents'],['Live feed','chat','h-feed'],['Memory','db','sec-memory'],['Connections','plug','sec-conn'],['Modules','flow','sec-modules']];
 
   /* ---------- Nav ---------- */
@@ -438,8 +442,8 @@ body.focus .c-over,body.focus .c-agents,body.focus .c-time,body.focus .c-quick,b
   $('#brief').addEventListener('click', () => send('Give me my executive briefing for right now: top three moves, what needs me, and one thing to protect.'));
 
   /* ---------- State-driven panels ---------- */
-  let sample = null, state = 'idle', mode = store.get('atlas.mode','work'), history = store.get('atlas.history', []), vaultOn = false;
-  const linkedCount = () => (sample ? 1 : 0) + (vaultOn ? 1 : 0);
+  let sample = null, state = 'idle', mode = store.get('atlas.mode','work'), history = store.get('atlas.history', []), vaultOn = false, macOn = false;
+  const linkedCount = () => (sample ? 1 : 0) + (vaultOn ? 1 : 0) + (macOn ? 1 : 0);
   const agentCanvases = [];
   function renderAgents(){
     const A = [
@@ -474,7 +478,7 @@ body.focus .c-over,body.focus .c-agents,body.focus .c-time,body.focus .c-quick,b
   function renderConns(){
     $('#cgrid').innerHTML = '';
     CONNS.forEach(n => {
-      const on = (n === 'Claude' && !!sample) || (n === 'Obsidian' && vaultOn);
+      const on = (n === 'Claude' && !!sample) || (n === 'Obsidian' && vaultOn) || (n === 'MacBook' && macOn);
       const b = document.createElement('button'); b.type = 'button'; b.className = 'conn';
       b.innerHTML = `<span class="cdot ${on ? 'on' : ''}"></span><div style="min-width:0"><span>${n}</span><small class="${on ? 'st-ok' : 'st-off'}">${on ? 'Connected' : 'Not linked'}</small></div>`;
       if (!on) b.addEventListener('click', () => send(`How do I connect ${n} to Atlas, and what will it let you do for me?`));
@@ -769,7 +773,49 @@ body.focus .c-over,body.focus .c-agents,body.focus .c-time,body.focus .c-quick,b
     if (!p) return false;
     key = k; store.set('atlas.key', k); cloud = !!p.storage; ttsServer = !!p.tts; vaultOn = !!p.vault; sample = true;
     $('#lock').hidden = true; feed.querySelectorAll('.offline').forEach(n => n.remove());
-    renderAll(); pullHistory(); return true;
+    renderAll(); pullHistory();
+    if (cloud){ deskStatus(); scheduleDesk(); }
+    if (new URLSearchParams(location.search).has('listen')){ window.history.replaceState(null, '', location.pathname); setTimeout(() => listen(), 400); }
+    return true;
+  }
+
+  /* ---------- Desktop (Mac) status and Allow/Deny ---------- */
+  let deskTimer = null; const cards = new Map();
+  async function deskStatus(){
+    if (!cloud || !key) return;
+    try{
+      const r = await fetch('/api/desktop?op=status', { headers:{ 'x-atlas-key': key } }); if (!r.ok) return;
+      const j = await r.json();
+      if (!!j.online !== macOn){ macOn = !!j.online; renderAll(); }
+      (j.pending || []).forEach(p => { if (!cards.has(p.id)) approvalCard(p); });
+    }catch(e){}
+  }
+  function scheduleDesk(){ clearTimeout(deskTimer); deskTimer = setTimeout(async () => { if (!document.hidden) await deskStatus(); scheduleDesk(); }, busy ? 2000 : 20000); }
+  document.addEventListener('visibilitychange', () => { if (!document.hidden && cloud){ deskStatus(); scheduleDesk(); } });
+  function approvalCard(p){
+    const tx = item('sys', 'ALLOW ON YOUR MAC?', p.summary); const card = tx.parentNode; card.classList.add('ask');
+    const row = document.createElement('div'); row.className = 'acts';
+    const yes = document.createElement('button'); yes.type = 'button'; yes.className = 'yes'; yes.textContent = 'Allow';
+    const no = document.createElement('button'); no.type = 'button'; no.textContent = 'Deny';
+    row.append(yes, no); card.appendChild(row); cards.set(p.id, card); feed.scrollTop = feed.scrollHeight;
+    const decide = async allow => {
+      row.remove();
+      try{
+        const r = await fetch('/api/desktop?op=decide', { method:'POST', headers:{ 'content-type':'application/json', 'x-atlas-key': key }, body: JSON.stringify({ id: p.id, allow }) });
+        const j = await r.json().catch(() => ({}));
+        if (!r.ok){ tx.textContent = p.summary + ' — ' + (j.error || 'could not be updated') + '.'; return; }
+        if (!allow){ tx.textContent = p.summary + ' — denied. Nothing was done.'; return; }
+        tx.textContent = p.summary + ' — allowed, running on your Mac…';
+        for (let i = 0; i < 40; i++){
+          await new Promise(res => setTimeout(res, 1500));
+          const c = await (await fetch('/api/desktop?op=cmd&id=' + encodeURIComponent(p.id), { headers:{ 'x-atlas-key': key } })).json().catch(() => ({}));
+          if (c.status === 'done'){ tx.textContent = p.summary + ' — done.'; return; }
+          if (c.status === 'expired') break;
+        }
+        tx.textContent = p.summary + ' — allowed. Your Mac hasn’t confirmed yet; it may be asleep.';
+      }catch(e){ tx.textContent = p.summary + ' — couldn’t reach Atlas. Try again.'; }
+    };
+    yes.addEventListener('click', () => decide(true)); no.addEventListener('click', () => decide(false));
   }
   $('#lockform').addEventListener('submit', async e => {
     e.preventDefault(); const k = $('#passcode').value.trim(); if (!k){ $('#lockerr').textContent = 'Enter your passcode first.'; return; }
@@ -941,7 +987,7 @@ body.focus .c-over,body.focus .c-agents,body.focus .c-time,body.focus .c-quick,b
     const files = pending.filter(p => p.parts && p.parts.length);
     if (!text && !files.length) return;
     if (!sample){ offline(); return; }
-    busy = true; $('#send').disabled = true;
+    busy = true; $('#send').disabled = true; if (cloud) scheduleDesk();
     if (!text) text = files.length === 1 ? 'Here’s a file. Take a look.' : 'Here are some files. Take a look.';
     const attachments = files.flatMap(p => p.parts);
     const stored = files.length ? `${text}\n[Attached: ${files.map(p => p.name).join(', ')}]` : text;
@@ -965,7 +1011,7 @@ body.focus .c-over,body.focus .c-agents,body.focus .c-time,body.focus .c-quick,b
         : !navigator.onLine ? 'You’re offline. Atlas will answer once you reconnect.'
         : files.length ? 'That didn’t go through. Your files are still attached; send it again.' : 'That didn’t go through. Send it again.';
     }
-    setState('idle'); busy = false; $('#send').disabled = preparing();
+    setState('idle'); busy = false; $('#send').disabled = preparing(); if (cloud){ deskStatus(); scheduleDesk(); }
   }
   $('#form').addEventListener('submit', e => { e.preventDefault(); const v = input.value; input.value = ''; send(v); });
 
