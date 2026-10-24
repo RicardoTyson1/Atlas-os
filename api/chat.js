@@ -2,6 +2,7 @@ import { authorized, json, ATLAS_CODE, MODES } from './_atlas.js';
 import { vaultConfig, loadMemory, searchVault, readText, commit, exists, b64FromText, today, slug, titleSafe, cleanPath } from './_vault.js';
 import { SPANISH_TUTOR, SPANISH_TOOL, loadSpanish, logSpanish } from './_spanish.js';
 import { MAC_TOOL, DESKTOP_GUIDE, desktopDb, macOnline, markHot, runMac } from './_desktop.js';
+import { PHONE_TOOL, PHONE_GUIDE, phoneAction, cardChunk } from './_phone.js';
 
 export const config = { runtime: 'edge' };
 
@@ -284,7 +285,8 @@ export default async function handler(req) {
     parts.push(vault ? (spanishText || 'His Spanish files could not be loaded right now; teach from Unit 1 and do not log.') : 'The vault is not connected, so lessons cannot be logged; teach from Unit 1.');
   }
   if (db) parts.push(DESKTOP_GUIDE, macInfo ? `Right now the Mac (${macInfo.host || 'MacBook'}) is online.` : 'Right now the Mac is offline (helper not running or Mac asleep). Mac actions will not work until it is back.');
-  const toolList = [...(vault ? TOOLS : []), ...(vault && mode === 'spanish' ? [SPANISH_TOOL] : []), ...(db ? [MAC_TOOL] : [])];
+  parts.push(PHONE_GUIDE);
+  const toolList = [...(vault ? TOOLS : []), ...(vault && mode === 'spanish' ? [SPANISH_TOOL] : []), ...(db ? [MAC_TOOL] : []), PHONE_TOOL];
   const tools = toolList.length ? toolList : null;
   const system = parts.join('\n\n');
 
@@ -315,7 +317,7 @@ export default async function handler(req) {
   const stream = new ReadableStream({
     async start(controller) {
       let upstream = first;
-      let wrote = false;
+      let wrote = false, carded = false;
       try {
         for (let round = 0; round < 6; round++) {
           const reader = upstream.body.getReader();
@@ -374,7 +376,7 @@ export default async function handler(req) {
             try { input = b.json ? JSON.parse(b.json) : {}; } catch { input = {}; }
             assistant.push({ type: 'tool_use', id: b.id, name: b.name, input });
             let out;
-            try { out = b.name === 'mac' ? (db ? await runMac(db, input.action, input.args) : { text: 'The desktop module is not connected.', error: true }) : vault ? await runTool(vault, b.name, input) : { text: 'The vault is not connected.', error: true }; }
+            try { out = b.name === 'phone' ? (() => { const r = phoneAction(input.action, input.args); if (r.error) return { text: r.error, error: true }; controller.enqueue(encoder.encode(cardChunk(r.card))); carded = true; return { text: r.text }; })() : b.name === 'mac' ? (db ? await runMac(db, input.action, input.args) : { text: 'The desktop module is not connected.', error: true }) : vault ? await runTool(vault, b.name, input) : { text: 'The vault is not connected.', error: true }; }
             catch (e) { console.error('Tool failed', b.name, e.message); out = { text: `That failed: ${e.message.slice(0, 200)}`, error: true }; }
             console.log('tool', b.name, input.action || '', out.error ? 'error' : 'ok', String(out.text).slice(0, 160).replace(/\n/g, ' | '));
             const content = out.image ? [{ type: 'text', text: out.text }, { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: out.image } }] : out.text;
@@ -393,7 +395,7 @@ export default async function handler(req) {
         console.error('Chat stream error', e.message);
         controller.enqueue(encoder.encode(wrote ? ' (Something interrupted me. Try again.)' : 'Something interrupted me. Try again.'));
       } finally {
-        if (!wrote) { console.error('Chat ended with no text'); controller.enqueue(encoder.encode('I ran out of room before I could answer. Ask me again, or ask for a shorter version.')); }
+        if (!wrote && !carded) { console.error('Chat ended with no text'); controller.enqueue(encoder.encode('I ran out of room before I could answer. Ask me again, or ask for a shorter version.')); }
         controller.close();
       }
     }
