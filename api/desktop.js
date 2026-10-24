@@ -69,6 +69,7 @@ export default async function handler(req) {
       await redis(db, ['SET', K.cmd(id), JSON.stringify(cmd), 'KEEPTTL']);
       await redis(db, ['SREM', K.pending, id]);
       if (cmd.status === 'queued') await redis(db, ['RPUSH', K.queue, id]);
+      if (cmd.status === 'queued' && cmd.action === 'organize_desktop') await redis(db, ['SET', K.organizeOk, '1', 'EX', '900']);
       return json({ ok: true, status: cmd.status });
     }
   } catch (e) {

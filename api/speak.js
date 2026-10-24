@@ -24,7 +24,7 @@ export default async function handler(req) {
     headers: { 'xi-api-key': apiKey, 'content-type': 'application/json', accept: 'audio/mpeg' },
     body: JSON.stringify({
       text,
-      model_id: process.env.ELEVENLABS_MODEL || 'eleven_multilingual_v2',
+      model_id: process.env.ELEVENLABS_MODEL || 'eleven_flash_v2_5',
       voice_settings: { stability: 0.45, similarity_boost: 0.8, style: 0.15, use_speaker_boost: true }
     })
   });
@@ -32,6 +32,7 @@ export default async function handler(req) {
   if (!upstream.ok || !upstream.body) {
     const detail = await upstream.text().catch(() => '');
     console.error('ElevenLabs error', upstream.status, detail.slice(0, 500));
+    if (/quota_exceeded|credits/i.test(detail)) return json({ error: 'Voice credits used up', quota: true }, 402);
     return json({ error: 'Voice service error', status: upstream.status }, 502);
   }
   return new Response(upstream.body, { headers: { 'content-type': 'audio/mpeg', 'cache-control': 'no-store' } });

@@ -29,7 +29,7 @@ function volumeArg(level) {
 }
 function organizeArgs(a) {
   const moves = Array.isArray(a.moves) ? a.moves : [];
-  if (!moves.length || moves.length > 500) return null;
+  if (!moves.length || moves.length > 40) return null;
   const clean = [];
   for (const m of moves) {
     const name = typeof m?.name === 'string' ? m.name : '';
@@ -67,8 +67,8 @@ To find a file he names, use find_files first, then open_path with the exact pat
 Organizing the Desktop follows his rules exactly, in this order:
 1. Call list_desktop and give him the complete list of every file and folder, changing nothing.
 2. Propose where each item goes, using only these folders: Jobs, Quotes and Invoices, Customers, Commercial, Marketing, Personal, Archive, To Review. Anything unclear goes to To Review. Show the plan grouped by folder and ask for his approval. Stop and wait.
-3. Only after he clearly approves (and only with any changes he asked for), call organize_desktop with the moves. It only moves items; it never deletes, renames or overwrites, and it skips anything whose name already exists in the destination.
-4. When it finishes, give him the full list of what moved where and anything skipped. Mention he can say "undo the Desktop organize" to put everything back.
+3. Only after he clearly approves (and only with any changes he asked for), move the items. If the exact names are not in this conversation, call list_desktop again first. Send the moves in batches of at most 40 items per organize_desktop call, using exact names. The first batch needs his Allow; once he allows it, the remaining batches of that run go through without asking again (for 15 minutes). While batching, keep your words very short. Moving only ever moves: it never deletes, renames or overwrites, and it skips anything whose name already exists in the destination.
+4. When all batches finish, give him a short summary per folder of what moved and list anything skipped. Mention he can say "undo the Desktop organize" to put the whole run back.
 Never reveal or speak passwords or secrets you might see on screen.`;
 
 /* ---------- Upstash Redis (REST) ---------- */
@@ -78,6 +78,7 @@ export const K = {
   queue: 'atlas:mac:queue',
   pending: 'atlas:mac:pending',
   hot: 'atlas:mac:hot',
+  organizeOk: 'atlas:mac:organize-ok',
   cmd: id => `atlas:mac:cmd:${id}`
 };
 
@@ -108,6 +109,8 @@ export async function runMac(db, action, args) {
   const online = await macOnline(db);
   if (!online) return { text: 'The Mac is offline: the Atlas helper is not running or the Mac is asleep. Nothing was done.', error: true };
 
+  // Once he allows the first organize batch, the rest of that run doesn't ask again.
+  if (action === 'organize_desktop' && !v.safe && await redis(db, ['GET', K.organizeOk])) v.safe = true;
   const id = crypto.randomUUID();
   const cmd = { id, action, args: v.clean, summary: v.summary, status: v.safe ? 'queued' : 'approval', created: Date.now() };
   await redis(db, ['SET', K.cmd(id), JSON.stringify(cmd), 'EX', '600']);
