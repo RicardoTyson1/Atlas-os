@@ -352,6 +352,7 @@ export default async function handler(req) {
               }
             }
           }
+          console.log('chat round', round, 'stop', stop, 'blocks', blocks.filter(Boolean).map(b => b.type + (b.name ? ':' + b.name : '') + (b.text ? ':' + b.text.length : '')).join(','));
           if (stop !== 'tool_use' || !tools) break;
 
           const assistant = [];
@@ -365,6 +366,7 @@ export default async function handler(req) {
             let out;
             try { out = b.name === 'mac' ? (db ? await runMac(db, input.action, input.args) : { text: 'The desktop module is not connected.', error: true }) : vault ? await runTool(vault, b.name, input) : { text: 'The vault is not connected.', error: true }; }
             catch (e) { console.error('Tool failed', b.name, e.message); out = { text: `That failed: ${e.message.slice(0, 200)}`, error: true }; }
+            console.log('tool', b.name, input.action || '', out.error ? 'error' : 'ok', String(out.text).slice(0, 160).replace(/\n/g, ' | '));
             const content = out.image ? [{ type: 'text', text: out.text }, { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: out.image } }] : out.text;
             results.push({ type: 'tool_result', tool_use_id: b.id, content, ...(out.error ? { is_error: true } : {}) });
           }
@@ -381,6 +383,7 @@ export default async function handler(req) {
         console.error('Chat stream error', e.message);
         controller.enqueue(encoder.encode(wrote ? ' (Something interrupted me. Try again.)' : 'Something interrupted me. Try again.'));
       } finally {
+        if (!wrote) { console.error('Chat ended with no text'); controller.enqueue(encoder.encode('I did that, but my answer came back empty. Ask me again and I will read you the result.')); }
         controller.close();
       }
     }
