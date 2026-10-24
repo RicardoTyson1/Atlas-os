@@ -293,7 +293,7 @@ export default async function handler(req) {
     headers: { 'x-api-key': process.env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
     body: JSON.stringify({
       model: process.env.ATLAS_MODEL || 'claude-sonnet-5-5',
-      max_tokens: Number(process.env.ATLAS_MAX_TOKENS || 1500),
+      max_tokens: Number(process.env.ATLAS_MAX_TOKENS || 8000),
       system,
       messages: convo,
       ...(tools ? { tools } : {}),
@@ -334,7 +334,10 @@ export default async function handler(req) {
               try { ev = JSON.parse(line.slice(5).trim()); } catch { continue; }
               if (ev.type === 'content_block_start') {
                 const b = ev.content_block || {};
-                blocks[ev.index] = b.type === 'tool_use' ? { type: 'tool_use', id: b.id, name: b.name, json: '' } : { type: b.type, text: '' };
+                blocks[ev.index] = b.type === 'tool_use' ? { type: 'tool_use', id: b.id, name: b.name, json: '' }
+                  : b.type === 'thinking' ? { type: 'thinking', thinking: b.thinking || '', signature: b.signature || '' }
+                  : b.type === 'redacted_thinking' ? { type: 'redacted_thinking', data: b.data }
+                  : { type: b.type, text: '' };
               } else if (ev.type === 'content_block_delta' && blocks[ev.index]) {
                 const d = ev.delta || {};
                 if (d.type === 'text_delta') {
@@ -344,6 +347,10 @@ export default async function handler(req) {
                   if (d.text.trim()) wrote = true;
                 } else if (d.type === 'input_json_delta') {
                   blocks[ev.index].json += d.partial_json || '';
+                } else if (d.type === 'thinking_delta') {
+                  blocks[ev.index].thinking += d.thinking || '';
+                } else if (d.type === 'signature_delta') {
+                  blocks[ev.index].signature += d.signature || '';
                 }
               } else if (ev.type === 'message_delta' && ev.delta && ev.delta.stop_reason) {
                 stop = ev.delta.stop_reason;
@@ -358,6 +365,9 @@ export default async function handler(req) {
           const assistant = [];
           const results = [];
           for (const b of blocks.filter(Boolean)) {
+            // Thinking must be passed back unchanged, in order, when continuing after a tool call.
+            if (b.type === 'thinking') { assistant.push({ type: 'thinking', thinking: b.thinking, signature: b.signature }); continue; }
+            if (b.type === 'redacted_thinking') { assistant.push({ type: 'redacted_thinking', data: b.data }); continue; }
             if (b.type === 'text' && b.text.trim()) assistant.push({ type: 'text', text: b.text });
             if (b.type !== 'tool_use') continue;
             let input = {};
@@ -383,7 +393,7 @@ export default async function handler(req) {
         console.error('Chat stream error', e.message);
         controller.enqueue(encoder.encode(wrote ? ' (Something interrupted me. Try again.)' : 'Something interrupted me. Try again.'));
       } finally {
-        if (!wrote) { console.error('Chat ended with no text'); controller.enqueue(encoder.encode('I did that, but my answer came back empty. Ask me again and I will read you the result.')); }
+        if (!wrote) { console.error('Chat ended with no text'); controller.enqueue(encoder.encode('I ran out of room before I could answer. Ask me again, or ask for a shorter version.')); }
         controller.close();
       }
     }
