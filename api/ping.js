@@ -10,6 +10,7 @@ export default async function handler(req) {
     storage: !!storageConfig(),
     brain: !!process.env.ANTHROPIC_API_KEY,
     tts: !!(process.env.ELEVENLABS_API_KEY && process.env.ELEVENLABS_VOICE_ID),
-    vault: !!vaultConfig()
+    vault: !!vaultConfig(),
+    spanishVoice: !!(process.env.ELEVENLABS_API_KEY && process.env.ELEVENLABS_SPANISH_VOICE_ID)
   });
 }

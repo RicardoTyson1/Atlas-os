@@ -3,16 +3,19 @@ import { authorized, json } from './_atlas.js';
 export const config = { runtime: 'edge' };
 
 // Turns Atlas's reply into a natural human voice with ElevenLabs.
+// In Spanish mode the dashboard sends lang "es" and, if one is set, a native Spanish voice is used.
 export default async function handler(req) {
   if (req.method !== 'POST') return json({ error: 'Method not allowed' }, 405);
   if (!authorized(req)) return json({ error: 'Unauthorized' }, 401);
 
-  const apiKey = process.env.ELEVENLABS_API_KEY;
-  const voiceId = process.env.ELEVENLABS_VOICE_ID;
-  if (!apiKey || !voiceId) return json({ error: 'Human voice is not set up yet' }, 501);
-
   let body;
   try { body = await req.json(); } catch { return json({ error: 'Bad request' }, 400); }
+
+  const apiKey = process.env.ELEVENLABS_API_KEY;
+  const spanishVoice = process.env.ELEVENLABS_SPANISH_VOICE_ID;
+  const voiceId = body.lang === 'es' && spanishVoice ? spanishVoice : process.env.ELEVENLABS_VOICE_ID;
+  if (!apiKey || !voiceId) return json({ error: 'Human voice is not set up yet' }, 501);
+
   const text = typeof body.text === 'string' ? body.text.trim().slice(0, 2500) : '';
   if (!text) return json({ error: 'No text to speak' }, 400);
 

@@ -1,5 +1,6 @@
 import { authorized, json, ATLAS_CODE, MODES } from './_atlas.js';
 import { vaultConfig, loadMemory, searchVault, readText, commit, exists, b64FromText, today, slug, titleSafe, cleanPath } from './_vault.js';
+import { SPANISH_TUTOR, SPANISH_TOOL, loadSpanish, logSpanish } from './_spanish.js';
 
 export const config = { runtime: 'edge' };
 
@@ -143,6 +144,8 @@ async function runTool(cfg, name, input) {
       await commit(cfg, [{ path, b64: b64FromText(note) }], `job ${title}`);
       return { text: `Filed as ${path}.` };
     }
+    case 'spanish_log':
+      return logSpanish(cfg, input);
     default:
       return { text: `Unknown tool ${name}.`, error: true };
   }
@@ -257,8 +260,10 @@ export default async function handler(req) {
       saveNote = 'Saving these files to the vault FAILED, so they are not stored. Tell Ricardo.';
     }
   })();
+  const mode = MODES[body.mode] ? body.mode : 'work';
   const memory = vault ? loadMemory(vault).catch(e => { console.error('Memory load failed', e.message); return ''; }) : Promise.resolve('');
-  const [, memoryText] = await Promise.all([saving, memory]);
+  const spanish = vault && mode === 'spanish' ? loadSpanish(vault).catch(e => { console.error('Spanish load failed', e.message); return ''; }) : Promise.resolve('');
+  const [, memoryText, spanishText] = await Promise.all([saving, memory, spanish]);
 
   if (files.length) {
     const last = clean[clean.length - 1];
@@ -266,12 +271,16 @@ export default async function handler(req) {
     last.content = [...fileBlocks(files), { type: 'text', text: `${last.content}\n\n[${list}]` }];
   }
 
-  const mode = MODES[body.mode] ? body.mode : 'work';
   const now = typeof body.now === 'string' ? body.now.slice(0, 80) : '';
   const parts = [ATLAS_CODE, `Right now: ${now}. Today's date for notes: ${date}. ${MODES[mode]}`];
   if (vault) parts.push(VAULT_GUIDE, memoryText ? `Long-term memory (from the vault):\n${memoryText}` : 'Long-term memory: the Memory/ notes are empty so far.');
   else parts.push('Memory vault: not connected yet. You cannot save or look up notes; if he asks, say the vault needs ATLAS_VAULT_TOKEN and ATLAS_VAULT_REPO set in Vercel.');
   parts.push(UPLOAD_GUIDE);
+  if (mode === 'spanish') {
+    parts.push(SPANISH_TUTOR);
+    parts.push(vault ? (spanishText || 'His Spanish files could not be loaded right now; teach from Unit 1 and do not log.') : 'The vault is not connected, so lessons cannot be logged; teach from Unit 1.');
+  }
+  const tools = vault ? (mode === 'spanish' ? [...TOOLS, SPANISH_TOOL] : TOOLS) : null;
   const system = parts.join('\n\n');
 
   const callClaude = convo => fetch('https://api.anthropic.com/v1/messages', {
@@ -282,7 +291,7 @@ export default async function handler(req) {
       max_tokens: Number(process.env.ATLAS_MAX_TOKENS || 1500),
       system,
       messages: convo,
-      ...(vault ? { tools: TOOLS } : {}),
+      ...(tools ? { tools } : {}),
       stream: true
     })
   });
