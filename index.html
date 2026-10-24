@@ -159,8 +159,8 @@ button{cursor:pointer}
 .chips{display:flex;gap:8px}
 .chip{border:1px solid var(--line);border-radius:12px;padding:6px 12px;background:var(--card);font-size:11px;line-height:1.35;white-space:nowrap}
 .chip small{display:block;font-family:var(--mono);font-size:10px;color:var(--dim);letter-spacing:.1em}
-.talk{flex:1;max-width:760px;margin:0 auto;display:flex;align-items:center;gap:8px;border:1px solid rgba(92,200,255,.65);border-radius:999px;padding:6px 6px 6px 8px;background:rgba(4,18,46,.95);box-shadow:0 0 22px rgba(47,140,255,.45),inset 0 0 18px rgba(47,140,255,.2)}
-.talk input{flex:1;min-width:0;background:transparent;border:0;outline:0;font-size:16px;padding:10px 4px}
+.talk{flex:1;min-width:0;max-width:760px;margin:0 auto;display:flex;align-items:center;gap:8px;border:1px solid rgba(92,200,255,.65);border-radius:999px;padding:6px 6px 6px 8px;background:rgba(4,18,46,.95);box-shadow:0 0 22px rgba(47,140,255,.45),inset 0 0 18px rgba(47,140,255,.2)}
+.talk input{flex:1 1 0;width:0;min-width:0;background:transparent;border:0;outline:0;font-size:16px;padding:10px 4px}
 .talk input::placeholder{color:#8FB2DD;letter-spacing:.04em}
 .ib{flex:none;width:44px;height:44px;border-radius:50%;border:1px solid var(--line);background:transparent;display:grid;place-items:center;color:var(--star)}
 .ib svg{width:20px;height:20px}
@@ -168,6 +168,19 @@ button{cursor:pointer}
 .ib[aria-pressed="true"]{border-color:var(--blue);color:var(--blue)}
 .ib.rec{background:var(--danger);border-color:var(--danger)}
 .ib:disabled{opacity:.35;cursor:not-allowed}
+.tray{position:absolute;left:50%;bottom:100%;transform:translateX(-50%);width:min(760px,calc(100% - 24px));display:flex;gap:8px;overflow-x:auto;padding:8px 2px 4px}
+.tray[hidden]{display:none}
+.att{position:relative;flex:none;display:flex;align-items:center;gap:8px;max-width:220px;border:1px solid rgba(92,200,255,.5);border-radius:12px;padding:5px 30px 5px 5px;background:rgba(4,18,46,.96);box-shadow:0 0 12px rgba(47,140,255,.35);font-size:12px}
+.att img,.att .ph{width:40px;height:40px;flex:none;border-radius:8px;object-fit:cover;background:rgba(47,140,255,.15);display:grid;place-items:center;font-family:var(--mono);font-size:10px;color:var(--blue)}
+.att span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.att small{display:block;color:var(--dim);font-family:var(--mono);font-size:10px}
+.att .x{position:absolute;top:50%;right:4px;transform:translateY(-50%);width:24px;height:24px;border-radius:50%;border:0;background:transparent;color:var(--star);font-size:16px;line-height:1}
+.att.busy{opacity:.7}.att.busy .ph{animation:pulse 1s ease-in-out infinite alternate}
+@keyframes pulse{from{opacity:.4}to{opacity:1}}
+.thumbs{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
+.thumbs img{width:56px;height:56px;border-radius:8px;object-fit:cover;border:1px solid var(--line)}
+.thumbs span{border:1px solid var(--line);border-radius:8px;padding:3px 8px;font-size:11px;font-family:var(--mono);color:var(--blue)}
+body.dropping .talk{border-color:var(--gold);box-shadow:0 0 28px rgba(255,200,90,.6)}
 .brief{border:1px solid var(--line2);border-radius:12px;padding:10px 16px;background:var(--card);font-size:13px;white-space:nowrap;box-shadow:0 0 12px rgba(47,140,255,.25)}
 svg.i{fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
@@ -213,6 +226,7 @@ body.focus .c-over,body.focus .c-agents,body.focus .c-time,body.focus .c-quick,b
   .clock{text-align:left}
   .modes{order:3;width:100%}.modes button{flex:1}
   .brief{display:none}
+  .talk{gap:4px}.talk .ib{width:40px;height:40px}
   #core{height:min(96vw,420px)}
   .hud{display:none}
   .c-over{order:0!important}
@@ -322,7 +336,10 @@ body.focus .c-over,body.focus .c-agents,body.focus .c-time,body.focus .c-quick,b
 
 <div class="bar">
   <div class="chips"><div class="chip"><small>NETWORK</small><span id="net">Connected</span></div><div class="chip"><small>BRAIN</small><span id="brainchip">Linking…</span></div></div>
+  <div class="tray" id="tray" hidden aria-label="Files to send"></div>
   <form class="talk" id="form" autocomplete="off">
+    <button type="button" class="ib" id="attach" aria-label="Attach photos, videos or files"><svg class="i" viewBox="0 0 24 24"><path d="M20.5 11.5l-8.2 8.2a5 5 0 0 1-7.1-7.1l8.5-8.5a3.3 3.3 0 0 1 4.7 4.7l-8.5 8.5a1.7 1.7 0 0 1-2.4-2.4l7.8-7.8"/></svg></button>
+    <input type="file" id="file" multiple accept="image/*,video/*,application/pdf,.pdf,.txt,.md,.csv,.json,text/plain,text/csv,text/markdown" hidden>
     <button type="button" class="ib" id="mic" aria-label="Talk to Atlas"><svg class="i" viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></button>
     <label class="sr" for="input">Talk to Atlas</label>
     <input id="input" placeholder="Talk to Atlas…" enterkeyhint="send">
@@ -367,7 +384,7 @@ body.focus .c-over,body.focus .c-agents,body.focus .c-time,body.focus .c-quick,b
     { id:'agents', name:'Child agents', status:'planned', tag:'Mark II', items:['Calendar and booking agents','Email and contacts (CX) agents','Expense and research agents'], via:'n8n agents, MCP tools' },
     { id:'workflows', name:'Workflow engine', status:'planned', tag:'Mark II', items:['Quote, book, invoice, review on autopilot','Connects every tool together','Logs each run for you to check'], via:'n8n, MCP, webhooks' },
     { id:'leads', name:'Lead hunter', status:'planned', tag:'Mark II', items:['Finds builders, property managers, venues','Spots businesses with weak websites','Drafts pitches for your approval'], via:'Web research, Google Maps' },
-    { id:'memory', name:'Memory vault', status:'planned', tag:'Mark III', items:['Daily notes, customers, jobs and ideas','Updated after every task','Searchable knowledge base'], via:'Obsidian' },
+    { id:'memory', name:'Memory vault', status:'online', tag:'Online', items:['Remembers what you tell it','Files job photos, quotes and install docs','Searches past jobs and customers'], via:'Obsidian vault, synced through GitHub' },
     { id:'private', name:'Private brain', status:'planned', tag:'Mark III', items:['Local AI on your own computer','Handles health and family data privately','Works offline'], via:'Ollama or LM Studio' },
     { id:'desktop', name:'Desktop control', status:'planned', tag:'Mark IV', items:['Opens apps, files and sites by voice','Volume up, down and mute','Clap or wake-word activation'], via:'Windows desktop app' },
     { id:'media', name:'Media', status:'planned', tag:'Mark IV', items:['Plays, pauses and skips music','Learns your taste by time and mood','Right playlist for the drive'], via:'Spotify, YouTube' },
@@ -415,7 +432,8 @@ body.focus .c-over,body.focus .c-agents,body.focus .c-time,body.focus .c-quick,b
   $('#brief').addEventListener('click', () => send('Give me my executive briefing for right now: top three moves, what needs me, and one thing to protect.'));
 
   /* ---------- State-driven panels ---------- */
-  let sample = null, state = 'idle', mode = store.get('atlas.mode','work'), history = store.get('atlas.history', []);
+  let sample = null, state = 'idle', mode = store.get('atlas.mode','work'), history = store.get('atlas.history', []), vaultOn = false;
+  const linkedCount = () => (sample ? 1 : 0) + (vaultOn ? 1 : 0);
   const agentCanvases = [];
   function renderAgents(){
     const A = [
@@ -424,7 +442,7 @@ body.focus .c-over,body.focus .c-agents,body.focus .c-time,body.focus .c-quick,b
       ['Core brain','core', sample ? 'Active' : 'Linking', sample ? 'ok' : 'warn'],
       ['Comms agent','mail','Not linked','off'],
       ['Lead hunter','target','Not linked','off'],
-      ['Memory agent','db','Not linked','off']
+      ['Memory agent','db', vaultOn ? 'Active' : 'Not linked', vaultOn ? 'ok' : 'off']
     ];
     $('#agrid').innerHTML = ''; agentCanvases.length = 0;
     A.forEach(([n, ic, st, cl]) => {
@@ -441,8 +459,8 @@ body.focus .c-over,body.focus .c-agents,body.focus .c-time,body.focus .c-quick,b
       ['AI core','core', sample ? 'Active' : 'Linking', sample ? 'ok' : 'warn'],
       ['Memory','db', `${msgs} messages stored`, 'blue'],
       ['Voice','mic', SRc ? 'Online' : TTS ? 'Speaks, type to talk' : 'Text only', SRc ? 'ok' : 'warn'],
-      ['Agents','bot', `${3} running`, 'ok'],
-      ['Connections','plug', `${sample ? 1 : 0} of ${CONNS.length} linked`, 'warn'],
+      ['Agents','bot', `${vaultOn ? 4 : 3} running`, 'ok'],
+      ['Connections','plug', `${linkedCount()} of ${CONNS.length} linked`, 'warn'],
       ['Shield','shield','Guarding', 'ok']
     ];
     $('#olist').innerHTML = rows.map(([n, ic, v, c]) => `<li><span class="ico">${svg(ic)}</span><div><b>${n}</b><small class="st-${c}">${v}</small></div></li>`).join('');
@@ -450,7 +468,7 @@ body.focus .c-over,body.focus .c-agents,body.focus .c-time,body.focus .c-quick,b
   function renderConns(){
     $('#cgrid').innerHTML = '';
     CONNS.forEach(n => {
-      const on = n === 'Claude' && !!sample;
+      const on = (n === 'Claude' && !!sample) || (n === 'Obsidian' && vaultOn);
       const b = document.createElement('button'); b.type = 'button'; b.className = 'conn';
       b.innerHTML = `<span class="cdot ${on ? 'on' : ''}"></span><div style="min-width:0"><span>${n}</span><small class="${on ? 'st-ok' : 'st-off'}">${on ? 'Connected' : 'Not linked'}</small></div>`;
       if (!on) b.addEventListener('click', () => send(`How do I connect ${n} to Atlas, and what will it let you do for me?`));
@@ -462,7 +480,7 @@ body.focus .c-over,body.focus .c-agents,body.focus .c-time,body.focus .c-quick,b
   }
   function ringSVG(p){ const r = 42, C = 2 * Math.PI * r; return `<svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="${r}" fill="none" stroke="rgba(90,180,255,.15)" stroke-width="7"/><circle cx="50" cy="50" r="${r}" fill="none" stroke="#5CC8FF" stroke-width="7" stroke-linecap="round" stroke-dasharray="${C * p} ${C}" style="filter:drop-shadow(0 0 4px #2F8CFF)"/></svg>`; }
   function renderRings(){
-    const R = [['Modules online', onlineMods / MODULES.length], ['Build path', 2 / 7], ['Connections', (sample ? 1 : 0) / CONNS.length]];
+    const R = [['Modules online', onlineMods / MODULES.length], ['Build path', 2 / 7], ['Connections', linkedCount() / CONNS.length]];
     $('#rings').innerHTML = R.map(([n, p]) => `<div><div class="ring">${ringSVG(p)}<div class="v">${Math.round(p * 100)}%</div></div><p>${n}</p></div>`).join('');
   }
   function renderMem(){
@@ -738,7 +756,7 @@ body.focus .c-over,body.focus .c-agents,body.focus .c-time,body.focus .c-quick,b
   async function wake(k){
     const p = await ping(k);
     if (!p) return false;
-    key = k; store.set('atlas.key', k); cloud = !!p.storage; ttsServer = !!p.tts; sample = true;
+    key = k; store.set('atlas.key', k); cloud = !!p.storage; ttsServer = !!p.tts; vaultOn = !!p.vault; sample = true;
     $('#lock').hidden = true; feed.querySelectorAll('.offline').forEach(n => n.remove());
     renderAll(); pullHistory(); return true;
   }
@@ -750,10 +768,11 @@ body.focus .c-over,body.focus .c-agents,body.focus .c-time,body.focus .c-quick,b
   $('#passcode').addEventListener('input', () => { $('#lockerr').textContent = ''; });
   (async () => { if (!(key && await wake(key))){ $('#lock').hidden = false; offline(); setTimeout(() => $('#passcode').focus(), 50); } })();
 
-  async function askBrain(msgs, onText){
+  async function askBrain(msgs, onText, attachments){
     const r = await fetch('/api/chat', { method:'POST', headers:{ 'content-type':'application/json', 'x-atlas-key': key },
-      body: JSON.stringify({ messages: msgs, mode, now: new Date().toLocaleString([], {weekday:'long', month:'long', day:'numeric', hour:'numeric', minute:'2-digit'}) }) });
+      body: JSON.stringify({ messages: msgs, mode, attachments: attachments && attachments.length ? attachments : undefined, now: new Date().toLocaleString([], {weekday:'long', month:'long', day:'numeric', hour:'numeric', minute:'2-digit'}) }) });
     if (r.status === 401){ const err = new Error('locked'); err.code = 'locked'; throw err; }
+    if (r.status === 413){ const err = new Error('too big'); err.code = 'toobig'; try{ err.detail = (await r.json()).error; }catch(e){} throw err; }
     if (!r.ok || !r.body){ const err = new Error('upstream'); err.code = 'upstream'; throw err; }
     const reader = r.body.getReader(), dec = new TextDecoder(); let full = '';
     while (true){ const { done, value } = await reader.read(); if (done) break; full += dec.decode(value, { stream:true }); onText(full); }
@@ -796,25 +815,144 @@ body.focus .c-over,body.focus .c-agents,body.focus .c-time,body.focus .c-quick,b
     await speakBrowser(text);
   }
 
+  /* ---------- Attachments: photos, videos (as key frames), PDFs and text files ---------- */
+  const MAX_ITEMS = 10, BUDGET = 3_800_000, PDF_MAX = 2_800_000, TEXT_MAX = 150_000, IMG_SIDE = 1568, FRAME_SIDE = 1280, FRAMES = 4;
+  let pending = [];   // { id, name, label, thumb, parts:[attachment], busy, error }
+  const tray = $('#tray'), fileInput = $('#file');
+  const partsCount = () => pending.reduce((n, p) => n + (p.parts ? p.parts.length : p.busy ? (p.video ? FRAMES : 1) : 0), 0);
+  const b64Size = () => pending.reduce((n, p) => n + (p.parts || []).reduce((m, a) => m + (a.data ? a.data.length : (a.text || '').length), 0), 0);
+  const preparing = () => pending.some(p => p.busy);
+  function renderTray(){
+    tray.innerHTML = ''; tray.hidden = !pending.length;
+    pending.forEach(p => {
+      const d = document.createElement('div'); d.className = 'att' + (p.busy ? ' busy' : '');
+      d.innerHTML = (p.thumb ? '<img alt="">' : '<div class="ph"></div>') + '<div style="min-width:0"><span></span><small></small></div><button type="button" class="x" aria-label="Remove">×</button>';
+      if (p.thumb) d.querySelector('img').src = p.thumb; else d.querySelector('.ph').textContent = p.kindTag;
+      d.querySelector('span').textContent = p.name; d.querySelector('small').textContent = p.busy ? 'Preparing…' : p.label;
+      d.querySelector('.x').addEventListener('click', () => { pending = pending.filter(x => x !== p); renderTray(); });
+      tray.appendChild(d);
+    });
+    $('#send').disabled = busy || preparing();
+  }
+  const note = t => item('sys', 'SYSTEM', t);
+  const dataOf = url => url.slice(url.indexOf(',') + 1);
+  function loadImage(file){
+    return new Promise((res, rej) => { const u = URL.createObjectURL(file), im = new Image(); im.onload = () => res({ im, u }); im.onerror = () => { URL.revokeObjectURL(u); rej(new Error('image')); }; im.src = u; });
+  }
+  function toJpeg(src, w, h, side, q){
+    const s = Math.min(1, side / Math.max(w, h)), c = document.createElement('canvas');
+    c.width = Math.max(1, Math.round(w * s)); c.height = Math.max(1, Math.round(h * s));
+    const g = c.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height); g.drawImage(src, 0, 0, c.width, c.height);
+    return c.toDataURL('image/jpeg', q);
+  }
+  async function prepImage(file){
+    const { im, u } = await loadImage(file);
+    try{ const url = toJpeg(im, im.naturalWidth, im.naturalHeight, IMG_SIDE, .85); return { thumb: url, parts: [{ kind:'image', name:file.name || 'photo.jpg', media_type:'image/jpeg', data: dataOf(url) }] }; }
+    finally{ URL.revokeObjectURL(u); }
+  }
+  function prepVideo(file){
+    return new Promise((res, rej) => {
+      const u = URL.createObjectURL(file), v = document.createElement('video');
+      v.muted = true; v.playsInline = true; v.preload = 'auto'; v.src = u;
+      const fail = () => { URL.revokeObjectURL(u); rej(new Error('video')); };
+      const seek = t => new Promise((ok, no) => { const tm = setTimeout(no, 8000); v.onseeked = () => { clearTimeout(tm); ok(); }; v.currentTime = t; });
+      v.onerror = fail;
+      v.onloadedmetadata = async () => {
+        try{
+          const d = isFinite(v.duration) && v.duration > 0 ? v.duration : 1;
+          if (!v.videoWidth){ await new Promise(r => { v.onloadeddata = r; setTimeout(r, 3000); }); }
+          const parts = []; let thumb = null; const name = file.name || 'video.mov';
+          for (const f of [.08, .36, .64, .92].slice(0, FRAMES)){
+            const t = Math.min(d - .05, Math.max(0, d * f));
+            await seek(t);
+            const url = toJpeg(v, v.videoWidth, v.videoHeight, FRAME_SIDE, .8);
+            if (!thumb) thumb = url;
+            parts.push({ kind:'frame', name, video:name, at: Math.round(t * 10) / 10, media_type:'image/jpeg', data: dataOf(url) });
+          }
+          URL.revokeObjectURL(u); res({ thumb, parts, label: `${parts.length} key frames · ${Math.round(d)}s` });
+        }catch(e){ fail(); }
+      };
+    });
+  }
+  function readDataURL(file){ return new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = rej; r.readAsDataURL(file); }); }
+  async function addFiles(list){
+    if (!sample){ offline(); return; }
+    for (const file of list){
+      const type = (file.type || '').toLowerCase(), name = file.name || 'file', ext = (name.split('.').pop() || '').toLowerCase();
+      const isImg = type.startsWith('image/') || ['heic','heif','jpg','jpeg','png','webp','gif'].includes(ext);
+      const isVid = type.startsWith('video/') || ['mov','mp4','m4v','webm'].includes(ext);
+      const isPdf = type === 'application/pdf' || ext === 'pdf';
+      const isTxt = type.startsWith('text/') || ['txt','md','csv','json'].includes(ext);
+      if (!isImg && !isVid && !isPdf && !isTxt){ note(`Atlas can read photos, videos, PDFs and text files. Save “${name}” as a PDF and attach that instead.`); continue; }
+      if (partsCount() + (isVid ? FRAMES : 1) > MAX_ITEMS){ note(`That’s the limit for one message (${MAX_ITEMS} images or files, a video counts as ${FRAMES}). Send these first, then add more.`); break; }
+      const p = { name, busy:true, video:isVid, kindTag: isVid ? 'VID' : isPdf ? 'PDF' : isTxt ? 'TXT' : 'IMG', label:'' };
+      pending.push(p); renderTray();
+      try{
+        if (isImg){ Object.assign(p, await prepImage(file)); p.label = 'Photo'; }
+        else if (isVid){ Object.assign(p, await prepVideo(file)); }
+        else if (isPdf){
+          if (file.size > PDF_MAX) throw new Error(`“${name}” is ${(file.size / 1e6).toFixed(1)} MB. PDFs up to 2.8 MB fit in one message.`);
+          p.parts = [{ kind:'pdf', name, media_type:'application/pdf', data: dataOf(await readDataURL(file)) }]; p.label = 'PDF · ' + (file.size < 1e6 ? Math.ceil(file.size / 1e3) + ' KB' : (file.size / 1e6).toFixed(1) + ' MB');
+        } else {
+          const text = await file.text();
+          if (text.length > TEXT_MAX) throw new Error(`“${name}” is too long to send in one message.`);
+          p.parts = [{ kind:'text', name, text }]; p.label = 'Text file';
+        }
+        p.busy = false;
+        if (b64Size() > BUDGET){ pending = pending.filter(x => x !== p); note(`“${name}” doesn’t fit in this message. Send what’s attached first, then add it.`); }
+      }catch(e){
+        pending = pending.filter(x => x !== p);
+        note(e && e.message && e.message.includes('“') ? e.message : isVid ? `Couldn’t read the video “${name}” in this browser. Try Safari, or send a few screenshots of it.` : `Couldn’t open “${name}”. Try another file.`);
+      }
+      renderTray();
+    }
+  }
+  $('#attach').addEventListener('click', () => { if (!sample){ offline(); return; } fileInput.click(); });
+  fileInput.addEventListener('change', () => { const fs = [...fileInput.files]; fileInput.value = ''; addFiles(fs); });
+  input.addEventListener('paste', e => { const fs = [...(e.clipboardData && e.clipboardData.files || [])]; if (fs.length){ e.preventDefault(); addFiles(fs); } });
+  let dragDepth = 0;
+  addEventListener('dragenter', e => { if (e.dataTransfer && [...e.dataTransfer.types].includes('Files')){ dragDepth++; document.body.classList.add('dropping'); } });
+  addEventListener('dragleave', () => { if (--dragDepth <= 0){ dragDepth = 0; document.body.classList.remove('dropping'); } });
+  addEventListener('dragover', e => { if (e.dataTransfer && [...e.dataTransfer.types].includes('Files')) e.preventDefault(); });
+  addEventListener('drop', e => { if (!e.dataTransfer || !e.dataTransfer.files.length) return; e.preventDefault(); dragDepth = 0; document.body.classList.remove('dropping'); addFiles([...e.dataTransfer.files]); });
+
+  function showThumbs(txEl, items){
+    const row = document.createElement('div'); row.className = 'thumbs';
+    items.forEach(p => { if (p.thumb){ const im = document.createElement('img'); im.src = p.thumb; im.alt = p.name; row.appendChild(im); } else { const s = document.createElement('span'); s.textContent = p.name; row.appendChild(s); } });
+    txEl.parentNode.appendChild(row); feed.scrollTop = feed.scrollHeight;
+  }
+
   async function send(text){
-    text = (text || '').trim(); if (!text || busy) return;
+    text = (text || '').trim();
+    if (busy || preparing()) return;
+    const files = pending.filter(p => p.parts && p.parts.length);
+    if (!text && !files.length) return;
     if (!sample){ offline(); return; }
     busy = true; $('#send').disabled = true;
-    item('you', 'YOU', text); history.push({role:'user', content:text, at:Date.now()});
-    const out = item('atlas', 'ATLAS', '…'); setState('thinking');
+    if (!text) text = files.length === 1 ? 'Here’s a file. Take a look.' : 'Here are some files. Take a look.';
+    const attachments = files.flatMap(p => p.parts);
+    const stored = files.length ? `${text}\n[Attached: ${files.map(p => p.name).join(', ')}]` : text;
+    pending = []; renderTray();
+    const you = item('you', 'YOU', text); if (files.length) showThumbs(you, files);
+    history.push({role:'user', content:stored, at:Date.now()});
+    const out = item('atlas', 'ATLAS', files.length ? 'Looking at your files…' : '…'); setState('thinking');
     if (innerWidth < 1280) $('.c-feed').scrollIntoView({block:'nearest', behavior: reduce ? 'auto' : 'smooth'});
     const msgs = history.slice(-16).map(m => ({ role:m.role, content:m.content }));
     try{
-      const full = await askBrain(msgs, txt => { out.textContent = txt; feed.scrollTop = feed.scrollHeight; });
+      const full = await askBrain(msgs, txt => { out.textContent = txt; feed.scrollTop = feed.scrollHeight; }, attachments);
       const reply = (full || '').trim() || 'Still here. Say that once more?';
       out.textContent = reply; history.push({role:'assistant', content:reply, at:Date.now()}); history = history.slice(-60); store.set('atlas.history', history); pushHistory(); renderOverview(); renderMem();
       setState('speaking'); await speak(reply);
     }catch(e){
       history.pop(); out.parentNode.className = 'fi sys'; out.parentNode.querySelector('.lb span').textContent = 'SYSTEM';
+      if (files.length && !(e && e.code === 'locked')){ pending = files.concat(pending); renderTray(); }
       if (e && e.code === 'locked'){ store.set('atlas.key', ''); sample = false; renderAll(); $('#lock').hidden = false; }
-      out.textContent = e && e.code === 'locked' ? 'Atlas locked itself. Enter your passcode again.' : !navigator.onLine ? 'You’re offline. Atlas will answer once you reconnect.' : 'That didn’t go through. Send it again.';
+      out.textContent = e && e.code === 'locked' ? 'Atlas locked itself. Enter your passcode again.'
+        : e && e.code === 'toobig' ? (e.detail || 'Those files are too large for one message.') + ' Your files are still attached; remove some and send again.'
+        : !navigator.onLine ? 'You’re offline. Atlas will answer once you reconnect.'
+        : files.length ? 'That didn’t go through. Your files are still attached; send it again.' : 'That didn’t go through. Send it again.';
     }
-    setState('idle'); busy = false; $('#send').disabled = false;
+    setState('idle'); busy = false; $('#send').disabled = preparing();
   }
   $('#form').addEventListener('submit', e => { e.preventDefault(); const v = input.value; input.value = ''; send(v); });
 

@@ -1,5 +1,5 @@
 // Atlas service worker: keeps the dashboard shell available offline. Never caches /api.
-const CACHE = 'atlas-shell-v2';
+const CACHE = 'atlas-shell-v3';
 const SHELL = ['/', '/index.html', '/manifest.json', '/icon-192.png', '/icon-512.png', '/apple-touch-icon.png'];
 
 self.addEventListener('install', e => {
