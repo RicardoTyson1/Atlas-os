@@ -8,7 +8,7 @@
 ObjC.import('Foundation');
 ObjC.import('stdlib');
 
-const VERSION = '1.1';
+const VERSION = '1.2';
 const app = Application.currentApplication();
 app.includeStandardAdditions = true;
 
@@ -154,6 +154,37 @@ const ACTIONS = {
     if (created.length) text += '\nCreated folders: ' + created.join(', ') + '.';
     if (moved.length) text += '\nMoved:\n' + moved.map(x => x.name + ' → ' + x.folder).join('\n');
     if (skipped.length) text += '\nSkipped:\n' + skipped.join('\n');
+    return text;
+  },
+  save_links(a) {
+    const root = DESKTOP + '/Websites', added = [], kept = [];
+    const mk = p => exists(p) || fm.createDirectoryAtPathWithIntermediateDirectoriesAttributesError(p, false, $(), null);
+    if (!mk(root)) throw new Error('Could not create the Websites folder on the Desktop.');
+    const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    for (const g of a.groups || []) {
+      if (!g.name || /[\/:]|^\./.test(g.name)) continue;
+      const dir = root + '/' + g.name;
+      if (!mk(dir)) { kept.push(g.name + ': folder could not be created'); continue; }
+      for (const l of g.links || []) {
+        if (!l.name || /[\/:]|^\./.test(l.name) || !/^https:\/\//i.test(l.url)) continue;
+        const file = dir + '/' + l.name + '.webloc';
+        if (exists(file)) { kept.push(g.name + '/' + l.name + ' (already there, left unchanged)'); continue; }
+        writeFile(file, '<?xml version="1.0" encoding="UTF-8"?>\n<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">\n<plist version="1.0">\n<dict>\n\t<key>URL</key>\n\t<string>' + esc(l.url) + '</string>\n</dict>\n</plist>\n');
+        added.push(g.name + '/' + l.name);
+      }
+    }
+    // Put the folder in the top-right corner of the Desktop (where the first icon goes).
+    let placed = false;
+    try {
+      const finder = Application('Finder');
+      const b = finder.desktop.window.bounds();
+      finder.desktop.folders.byName('Websites').desktopPosition = [b.width - 70, 60];
+      placed = true;
+    } catch (e) { /* Finder permission not given yet, or Desktop uses Sort By */ }
+    let text = 'Added ' + added.length + ' shortcut' + (added.length === 1 ? '' : 's') + ' to Desktop/Websites.';
+    if (added.length) text += '\n' + added.join('\n');
+    if (kept.length) text += '\nLeft as they were:\n' + kept.join('\n');
+    text += placed ? '\nThe Websites folder is in the top corner of the Desktop.' : '\nI could not move the folder to the top corner (Finder permission or Desktop sorting); it is on the Desktop.';
     return text;
   },
   undo_organize() {
