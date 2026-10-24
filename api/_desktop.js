@@ -18,7 +18,8 @@ const ACTIONS = {
   screenshot: { safe: false, check: () => ({}), say: () => 'Take a screenshot so Atlas can see your screen' },
   run_shortcut: { safe: false, check: a => str(a.name, 100) && { name: str(a.name, 100) }, say: a => `Run the Shortcut "${a.name}"` },
   organize_desktop: { safe: false, check: organizeArgs, say: a => `Move ${a.moves.length} Desktop item${a.moves.length === 1 ? '' : 's'} into folders (move only, nothing deleted or renamed)` },
-  undo_organize: { safe: false, check: () => ({}), say: () => 'Undo the last Desktop organize (move items back)' }
+  undo_organize: { safe: false, check: () => ({}), say: () => 'Undo the last Desktop organize (move items back)' },
+  save_links: { safe: false, check: linksArgs, say: a => `Add ${a.groups.reduce((n, g) => n + g.links.length, 0)} website shortcuts to the Desktop "Websites" folder (${a.groups.map(g => g.name).join(', ')}); new files only` }
 };
 
 function str(v, max) { v = typeof v === 'string' ? v.trim() : ''; return v && v.length <= max ? v : ''; }
@@ -41,6 +42,29 @@ function organizeArgs(a) {
   return { moves: clean };
 }
 
+function linksArgs(a) {
+  const groups = Array.isArray(a.groups) ? a.groups : [];
+  if (!groups.length || groups.length > 20) return null;
+  const clean = [];
+  let total = 0;
+  for (const g of groups) {
+    const name = typeof g?.name === 'string' ? g.name.trim() : '';
+    if (!name || name.length > 60 || /[\/:]|^\./.test(name)) return null;
+    const links = Array.isArray(g.links) ? g.links : [];
+    const cl = [];
+    for (const l of links) {
+      const ln = typeof l?.name === 'string' ? l.name.trim() : '';
+      const url = typeof l?.url === 'string' ? l.url.trim() : '';
+      if (!ln || ln.length > 80 || /[\/:]|^\./.test(ln) || !/^https:\/\/[^\s"<>]{3,500}$/i.test(url)) return null;
+      cl.push({ name: ln, url });
+    }
+    if (!cl.length) return null;
+    total += cl.length;
+    clean.push({ name, links: cl });
+  }
+  return total <= 200 ? { groups: clean } : null;
+}
+
 export function checkAction(action, args) {
   const spec = ACTIONS[action];
   if (!spec) return { error: `Unknown Mac action "${action}".` };
@@ -51,7 +75,7 @@ export function checkAction(action, args) {
 
 export const MAC_TOOL = {
   name: 'mac',
-  description: 'Control Ricardo\'s MacBook through the Atlas helper. Actions: open_app {name}, open_url {url}, open_path {path} (a file or folder, ~ allowed), find_files {query} (search file names in his home folder), volume {level: 0-100 | "up" | "down" | "mute" | "unmute"}, media {command: play_pause | next | previous}, lock_screen, list_desktop (read-only list of everything on the Desktop), screenshot (see his screen; needs his Allow), run_shortcut {name} (an Apple Shortcut; needs Allow), organize_desktop {moves: [{name, folder}]} (move-only; needs Allow), undo_organize (needs Allow).',
+  description: 'Control Ricardo\'s MacBook through the Atlas helper. Actions: open_app {name}, open_url {url}, open_path {path} (a file or folder, ~ allowed), find_files {query} (search file names in his home folder), volume {level: 0-100 | "up" | "down" | "mute" | "unmute"}, media {command: play_pause | next | previous}, lock_screen, list_desktop (read-only list of everything on the Desktop), save_links {groups: [{name, links: [{name, url}]}]} (adds website shortcuts into Desktop/Websites/<group>/, new files only, keeps the Websites folder in the top corner; needs Allow), screenshot (see his screen; needs his Allow), run_shortcut {name} (an Apple Shortcut; needs Allow), organize_desktop {moves: [{name, folder}]} (move-only; needs Allow), undo_organize (needs Allow).',
   input_schema: {
     type: 'object',
     properties: {
@@ -69,6 +93,7 @@ Organizing the Desktop follows his rules exactly, in this order:
 2. Propose where each item goes, using only these folders: Jobs, Quotes and Invoices, Customers, Commercial, Marketing, Personal, Archive, To Review. Anything unclear goes to To Review. Show the plan grouped by folder and ask for his approval. Stop and wait.
 3. Only after he clearly approves (and only with any changes he asked for), move the items. If the exact names are not in this conversation, call list_desktop again first. Send the moves in batches of at most 40 items per organize_desktop call, using exact names. The first batch needs his Allow; once he allows it, the remaining batches of that run go through without asking again (for 15 minutes). While batching, keep your words very short. Moving only ever moves: it never deletes, renames or overwrites, and it skips anything whose name already exists in the destination.
 4. When all batches finish, give him a short summary per folder of what moved and list anything skipped. Mention he can say "undo the Desktop organize" to put the whole run back.
+Website shortcuts: Ricardo keeps one-click website links in a "Websites" folder at the top of his Desktop, sorted into subfolders by topic (currently Atlas, Mount Atlanta, Everyday). When he asks to save or add a site, use save_links with the right subfolder (or a new, clearly named one) and an exact https address; never guess addresses.
 Never reveal or speak passwords or secrets you might see on screen.`;
 
 /* ---------- Upstash Redis (REST) ---------- */
