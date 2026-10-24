@@ -168,6 +168,8 @@ button{cursor:pointer}
 .ib[aria-pressed="true"]{border-color:var(--blue);color:var(--blue)}
 .ib.rec{background:var(--danger);border-color:var(--danger)}
 .ib:disabled{opacity:.35;cursor:not-allowed}
+.ib.lang{width:36px;font-family:var(--mono);font-size:12px;letter-spacing:.06em;color:var(--gold);border-color:rgba(255,200,90,.55)}
+.ib.lang[hidden]{display:none}
 .tray{position:absolute;left:50%;bottom:100%;transform:translateX(-50%);width:min(760px,calc(100% - 24px));display:flex;gap:8px;overflow-x:auto;padding:8px 2px 4px}
 .tray[hidden]{display:none}
 .att{position:relative;flex:none;display:flex;align-items:center;gap:8px;max-width:220px;border:1px solid rgba(92,200,255,.5);border-radius:12px;padding:5px 30px 5px 5px;background:rgba(4,18,46,.96);box-shadow:0 0 12px rgba(47,140,255,.35);font-size:12px}
@@ -226,7 +228,7 @@ body.focus .c-over,body.focus .c-agents,body.focus .c-time,body.focus .c-quick,b
   .clock{text-align:left}
   .modes{order:3;width:100%}.modes button{flex:1}
   .brief{display:none}
-  .talk{gap:4px}.talk .ib{width:40px;height:40px}
+  .talk{gap:4px}.talk .ib{width:40px;height:40px}.talk .ib.lang{width:34px}
   #core{height:min(96vw,420px)}
   .hud{display:none}
   .c-over{order:0!important}
@@ -269,6 +271,7 @@ body.focus .c-over,body.focus .c-agents,body.focus .c-time,body.focus .c-quick,b
         <button type="button" data-mode="work" aria-pressed="true">WORK</button>
         <button type="button" data-mode="family" aria-pressed="false">FAMILY</button>
         <button type="button" data-mode="rest" aria-pressed="false">REST</button>
+        <button type="button" data-mode="spanish" aria-pressed="false" lang="es">ESPAÑOL</button>
       </div>
       <div class="op"><div><b>Ricardo</b><small>Commander</small></div><div class="av">R</div></div>
     </header>
@@ -341,6 +344,7 @@ body.focus .c-over,body.focus .c-agents,body.focus .c-time,body.focus .c-quick,b
     <button type="button" class="ib" id="attach" aria-label="Attach photos, videos or files"><svg class="i" viewBox="0 0 24 24"><path d="M20.5 11.5l-8.2 8.2a5 5 0 0 1-7.1-7.1l8.5-8.5a3.3 3.3 0 0 1 4.7 4.7l-8.5 8.5a1.7 1.7 0 0 1-2.4-2.4l7.8-7.8"/></svg></button>
     <input type="file" id="file" multiple accept="image/*,video/*,application/pdf,.pdf,.txt,.md,.csv,.json,text/plain,text/csv,text/markdown" hidden>
     <button type="button" class="ib" id="mic" aria-label="Talk to Atlas"><svg class="i" viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></button>
+    <button type="button" class="ib lang" id="lang" hidden aria-label="Microphone language: Spanish. Tap to switch to English">ES</button>
     <label class="sr" for="input">Talk to Atlas</label>
     <input id="input" placeholder="Talk to Atlas…" enterkeyhint="send">
     <button type="button" class="ib" id="voice" aria-pressed="true" aria-label="Atlas speaks replies out loud"><svg class="i" viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M16.5 8.5a5 5 0 0 1 0 7"/></svg></button>
@@ -378,8 +382,9 @@ body.focus .c-over,body.focus .c-agents,body.focus .c-time,body.focus .c-quick,b
 
   /* ---------- Data ---------- */
   const MODULES = [
-    { id:'core', name:'Core and voice', status:'online', tag:'Online', items:['Talks, listens and speaks back','Follows Atlas’s Code','Work, family and rest modes'], via:'Claude, browser voice' },
+    { id:'core', name:'Core and voice', status:'online', tag:'Online', items:['Talks, listens and speaks back','Follows Atlas’s Code','Work, family, rest and Spanish modes'], via:'Claude, browser voice' },
     { id:'shield', name:'Shield', status:'online', tag:'Online', items:['Guardian rules on every action','Ask-first approvals for money and new contacts','Never invents data it doesn’t have'], via:'Atlas’s Code' },
+    { id:'spanish', name:'Spanish tutor', status:'online', tag:'Online', items:['Daily 20-30 minute lessons by voice','Job-site, everyday, travel and family Spanish','Tracks your words and mistakes in the vault'], via:'Claude, ElevenLabs, Obsidian vault' },
     { id:'comms', name:'Comms', status:'next', tag:'Mark I', items:['Answers calls and texts back missed calls','Reads, sorts and drafts email replies','Telegram and SMS line straight to Atlas'], via:'GoHighLevel, Gmail, Telegram' },
     { id:'agents', name:'Child agents', status:'planned', tag:'Mark II', items:['Calendar and booking agents','Email and contacts (CX) agents','Expense and research agents'], via:'n8n agents, MCP tools' },
     { id:'workflows', name:'Workflow engine', status:'planned', tag:'Mark II', items:['Quote, book, invoice, review on autopilot','Connects every tool together','Logs each run for you to check'], via:'n8n, MCP, webhooks' },
@@ -425,9 +430,10 @@ body.focus .c-over,body.focus .c-agents,body.focus .c-time,body.focus .c-quick,b
    ['Draft a customer reply','mail','Help me draft a reply to a customer. Ask me to paste their message first.'],
    ['Hunt commercial leads','target','Give me a plan to find five new commercial leads this week in Metro Atlanta: builders, property managers, apartment buildings.'],
    ['Plan my week','cal','Help me plan my week. Ask me what jobs and family commitments I have first.'],
-   ['Check in on me','heart','Check in on me. How should I be thinking about my energy and stress today?']].forEach(([label, ic, prompt]) => {
+   ['Check in on me','heart','Check in on me. How should I be thinking about my energy and stress today?'],
+   ['Spanish lesson','chat','Start today’s Spanish lesson.', 'spanish']].forEach(([label, ic, prompt, m]) => {
     const b = document.createElement('button'); b.type = 'button'; b.innerHTML = svg(ic) + `<span>${label}</span>`;
-    b.addEventListener('click', () => send(prompt)); $('#qlist').appendChild(b);
+    b.addEventListener('click', () => { if (m) setMode(m); send(prompt); }); $('#qlist').appendChild(b);
   });
   $('#brief').addEventListener('click', () => send('Give me my executive briefing for right now: top three moves, what needs me, and one thing to protect.'));
 
@@ -516,8 +522,13 @@ body.focus .c-over,body.focus .c-agents,body.focus .c-time,body.focus .c-quick,b
   tick(); setInterval(tick, 1000);
 
   /* ---------- Modes and focus ---------- */
-  const MODES = { work:'Work mode: be a sharp COO. Focus on the business, momentum and the next move.', family:'Family mode: Ricardo is with his family. Keep replies very short, only surface true emergencies, and encourage him to be present.', rest:'Rest mode: Ricardo is recharging. Be calm and supportive, no coaching or business talk unless he asks.' };
-  function setMode(m){ mode = MODES[m] ? m : 'work'; document.querySelectorAll('.modes button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.mode === mode))); store.set('atlas.mode', mode); }
+  const MODES = { work:'Work mode: be a sharp COO. Focus on the business, momentum and the next move.', family:'Family mode: Ricardo is with his family. Keep replies very short, only surface true emergencies, and encourage him to be present.', rest:'Rest mode: Ricardo is recharging. Be calm and supportive, no coaching or business talk unless he asks.', spanish:'Spanish mode: Atlas is your Spanish tutor.' };
+  let micLang = store.get('atlas.micLang', 'es');
+  function renderLang(){ const b = $('#lang'); b.hidden = mode !== 'spanish'; b.textContent = micLang === 'es' ? 'ES' : 'EN';
+    b.setAttribute('aria-label', micLang === 'es' ? 'Microphone language: Spanish. Tap to switch to English' : 'Microphone language: English. Tap to switch to Spanish');
+    $('#input').placeholder = mode === 'spanish' ? (micLang === 'es' ? 'Habla con Atlas…' : 'Talk to Atlas (Spanish lesson)…') : 'Talk to Atlas…'; }
+  function setMode(m){ mode = MODES[m] ? m : 'work'; document.querySelectorAll('.modes button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.mode === mode))); store.set('atlas.mode', mode); renderLang(); }
+  $('#lang').addEventListener('click', () => { micLang = micLang === 'es' ? 'en' : 'es'; store.set('atlas.micLang', micLang); renderLang(); });
   document.querySelectorAll('.modes button').forEach(b => b.addEventListener('click', () => setMode(b.dataset.mode)));
   setMode(mode);
   $('#focus').addEventListener('click', () => { const on = !document.body.classList.contains('focus'); document.body.classList.toggle('focus', on); $('#focus').setAttribute('aria-pressed', String(on)); $('#focus').textContent = on ? 'Exit focus mode' : 'Focus mode'; });
@@ -779,7 +790,9 @@ body.focus .c-over,body.focus .c-agents,body.focus .c-time,body.focus .c-quick,b
     return full;
   }
 
-  function pickVoice(){ if (!TTS) return null; const vs = speechSynthesis.getVoices(), gb = vs.filter(v => /en-GB/i.test(v.lang)); return gb.find(v => /daniel|arthur|george|oliver|male/i.test(v.name)) || gb[0] || vs.find(v => /^en/i.test(v.lang)) || null; }
+  function pickVoice(){ if (!TTS) return null; const vs = speechSynthesis.getVoices();
+    if (mode === 'spanish'){ const es = vs.find(v => /^es[-_](MX|US|419)/i.test(v.lang)) || vs.find(v => /^es/i.test(v.lang)); if (es) return es; }
+    const gb = vs.filter(v => /en-GB/i.test(v.lang)); return gb.find(v => /daniel|arthur|george|oliver|male/i.test(v.name)) || gb[0] || vs.find(v => /^en/i.test(v.lang)) || null; }
   function speakBrowser(text){ return new Promise(res => { if (!TTS) return res(); try{ speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(text), v = pickVoice(); if (v){ u.voice = v; u.lang = v.lang; } u.rate = .98; u.pitch = .9; u.onend = res; u.onerror = res; speechSynthesis.speak(u); }catch(e){ res(); } }); }
 
   // Human voice: audio from Atlas's server (ElevenLabs), played through Web Audio so phones allow it.
@@ -797,7 +810,7 @@ body.focus .c-over,body.focus .c-agents,body.focus .c-time,body.focus .c-quick,b
     if (TTS) speechSynthesis.cancel();
   }
   async function speakHuman(text){
-    const r = await fetch('/api/speak', { method:'POST', headers:{ 'content-type':'application/json', 'x-atlas-key': key }, body: JSON.stringify({ text }) });
+    const r = await fetch('/api/speak', { method:'POST', headers:{ 'content-type':'application/json', 'x-atlas-key': key }, body: JSON.stringify({ text, lang: mode === 'spanish' ? 'es' : 'en' }) });
     if (!r.ok) throw new Error('voice ' + r.status);
     const data = await r.arrayBuffer();
     unlockAudio();
@@ -962,7 +975,7 @@ body.focus .c-over,body.focus .c-agents,body.focus .c-time,body.focus .c-quick,b
     if (!SRc){ item('sys', 'SYSTEM', 'Voice input isn’t supported in this browser. Type your command instead.'); return; }
     if (rec){ rec.stop(); return; }
     try{
-      rec = new SRc(); rec.lang = 'en-US'; rec.interimResults = true; rec.continuous = false; let fin = '';
+      rec = new SRc(); rec.lang = mode === 'spanish' && micLang === 'es' ? 'es-US' : 'en-US'; rec.interimResults = true; rec.continuous = false; let fin = '';
       rec.onstart = () => { $('#mic').classList.add('rec'); $('#bigmic').classList.add('rec'); setState('listening'); stopSpeaking(); };
       rec.onresult = ev => { let interim = ''; for (const r of ev.results){ if (r.isFinal) fin = r[0].transcript; else interim += r[0].transcript; } input.value = fin || interim; };
       rec.onerror = ev => { if (ev.error === 'not-allowed' || ev.error === 'service-not-allowed') item('sys', 'SYSTEM', 'Microphone access is blocked on this page. Type your command instead.'); };
