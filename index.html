@@ -408,6 +408,7 @@ body.focus .c-over,body.focus .c-agents,body.focus .c-time,body.focus .c-quick,b
     { id:'everywhere', name:'Everywhere', status:'planned', tag:'Mark V', items:['iPhone Action Button and Back Tap','Standalone desktop and phone apps','CarPlay, watch and any screen'], via:'Native apps, Shortcuts' }
   ];
   const CONNS = ['Claude','MacBook','GoHighLevel','Gmail','Google Calendar','Telegram','n8n','Obsidian','Ollama','Spotify','Home Assistant','Apple Health','Square'];
+  const CONN_ASK = { MacBook: 'Is my MacBook connected to you right now? If not, walk me through starting the Atlas Mac helper.', 'Apple Health': 'Walk me through setting up the Apple Health Shortcut on my iPhone so it sends my daily health summary to you.' };
   const NAV = [['Command center','grid','top'],['Core','core','sec-core'],['Agents','bot','sec-agents'],['Live feed','chat','h-feed'],['Memory','db','sec-memory'],['Connections','plug','sec-conn'],['Modules','flow','sec-modules']];
 
   /* ---------- Nav ---------- */
@@ -446,8 +447,8 @@ body.focus .c-over,body.focus .c-agents,body.focus .c-time,body.focus .c-quick,b
   $('#brief').addEventListener('click', () => send('Give me my executive briefing for right now: top three moves, what needs me, and one thing to protect.'));
 
   /* ---------- State-driven panels ---------- */
-  let sample = null, state = 'idle', mode = store.get('atlas.mode','work'), history = store.get('atlas.history', []), vaultOn = false, macOn = false, ghlOn = false;
-  const linkedCount = () => (sample ? 1 : 0) + (vaultOn ? 1 : 0) + (macOn ? 1 : 0) + (ghlOn ? 1 : 0);
+  let sample = null, state = 'idle', mode = store.get('atlas.mode','work'), history = store.get('atlas.history', []), vaultOn = false, macOn = false, ghlOn = false, svc = {};
+  const linkedCount = () => (sample ? 1 : 0) + (vaultOn ? 1 : 0) + (macOn ? 1 : 0) + (ghlOn ? 1 : 0) + (svc.google ? 2 : 0) + (svc.spotify ? 1 : 0) + (svc.health ? 1 : 0);
   const agentCanvases = [];
   function renderAgents(){
     const A = [
@@ -482,11 +483,13 @@ body.focus .c-over,body.focus .c-agents,body.focus .c-time,body.focus .c-quick,b
   function renderConns(){
     $('#cgrid').innerHTML = '';
     CONNS.forEach(n => {
-      const on = (n === 'Claude' && !!sample) || (n === 'Obsidian' && vaultOn) || (n === 'MacBook' && macOn) || (n === 'GoHighLevel' && ghlOn);
+      const on = (n === 'Claude' && !!sample) || (n === 'Obsidian' && vaultOn) || (n === 'MacBook' && macOn) || (n === 'GoHighLevel' && ghlOn) || ((n === 'Gmail' || n === 'Google Calendar') && svc.google) || (n === 'Spotify' && svc.spotify) || (n === 'Apple Health' && svc.health);
+      const prov = (n === 'Gmail' || n === 'Google Calendar') ? 'google' : n === 'Spotify' ? 'spotify' : null;
       const b = document.createElement('button'); b.type = 'button'; b.className = 'conn';
       b.innerHTML = `<span class="cdot ${on ? 'on' : ''}"></span><div style="min-width:0"><span>${n}</span><small class="${on ? 'st-ok' : 'st-off'}">${on ? 'Connected' : 'Not linked'}</small></div>`;
-      if (!on) b.addEventListener('click', () => send(`How do I connect ${n} to Atlas, and what will it let you do for me?`));
-      else b.addEventListener('click', () => send(n === 'GoHighLevel' ? 'What can you see in GoHighLevel for me right now? Read-only.' : 'What does being connected to Claude let you do for me right now?'));
+      if (!on && prov && svc[prov + 'Ready']) { b.querySelector('small').textContent = 'Tap to connect'; b.addEventListener('click', () => oauthStart(prov)); }
+      else if (!on) b.addEventListener('click', () => send(CONN_ASK[n] || `How do I connect ${n} to Atlas, and what will it let you do for me?`));
+      else b.addEventListener('click', () => send(n === 'GoHighLevel' ? 'What can you see in GoHighLevel for me right now? Read-only.' : n === 'Claude' ? 'What does being connected to Claude let you do for me right now?' : `What can you do for me with ${n} right now?`));
       $('#cgrid').appendChild(b);
     });
     $('#conncount').textContent = `${linkedCount()} CONNECTED`;
@@ -763,6 +766,13 @@ body.focus .c-over,body.focus .c-agents,body.focus .c-time,body.focus .c-quick,b
   async function ping(k){
     try{ const r = await fetch('/api/ping', { headers:{ 'x-atlas-key': k } }); if (!r.ok) return null; return await r.json(); }catch(e){ return null; }
   }
+  async function oauthStart(provider){
+    const w = window.open('', '_blank');
+    try{ const r = await fetch('/api/oauth?provider=' + provider, { headers:{ 'x-atlas-key': key } }); const j = await r.json();
+      if (!r.ok || !j.url){ if (w) w.close(); item('sys', 'SYSTEM', j.error || 'Could not start sign-in.'); return; }
+      if (w) w.location.href = j.url; else location.href = j.url; }catch(e){ if (w) w.close(); item('sys', 'SYSTEM', 'Could not start sign-in.'); }
+  }
+  addEventListener('focus', async () => { if (!key) return; const p = await ping(key); if (p){ svc = { google: !!p.google, googleReady: !!p.googleReady, spotify: !!p.spotify, spotifyReady: !!p.spotifyReady, health: !!p.health }; ghlOn = !!p.ghl; renderAll(); } });
   async function pullHistory(){
     if (!cloud) return;
     try{ const r = await fetch('/api/history', { headers:{ 'x-atlas-key': key } }); if (!r.ok) return; const j = await r.json();
@@ -775,7 +785,7 @@ body.focus .c-over,body.focus .c-agents,body.focus .c-time,body.focus .c-quick,b
   async function wake(k){
     const p = await ping(k);
     if (!p) return false;
-    key = k; store.set('atlas.key', k); cloud = !!p.storage; ttsServer = !!p.tts; vaultOn = !!p.vault; ghlOn = !!p.ghl; sample = true;
+    key = k; store.set('atlas.key', k); cloud = !!p.storage; ttsServer = !!p.tts; vaultOn = !!p.vault; ghlOn = !!p.ghl; svc = { google: !!p.google, googleReady: !!p.googleReady, spotify: !!p.spotify, spotifyReady: !!p.spotifyReady, health: !!p.health }; sample = true;
     $('#lock').hidden = true; feed.querySelectorAll('.offline').forEach(n => n.remove());
     renderAll(); pullHistory();
     if (cloud){ deskStatus(); scheduleDesk(); }
