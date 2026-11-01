@@ -3,6 +3,7 @@ import { vaultConfig, loadMemory, searchVault, readText, commit, exists, b64From
 import { SPANISH_TUTOR, SPANISH_TOOL, loadSpanish, logSpanish } from './_spanish.js';
 import { MAC_TOOL, DESKTOP_GUIDE, desktopDb, macOnline, markHot, runMac } from './_desktop.js';
 import { PHONE_TOOL, PHONE_GUIDE, phoneAction, cardChunk } from './_phone.js';
+import { GHL_TOOLS, GHL_GUIDE, ghlConfig, runGhl } from './_ghl.js';
 
 export const config = { runtime: 'edge' };
 
@@ -286,7 +287,9 @@ export default async function handler(req) {
   }
   if (db) parts.push(DESKTOP_GUIDE, macInfo ? `Right now the Mac (${macInfo.host || 'MacBook'}) is online.` : 'Right now the Mac is offline (helper not running or Mac asleep). Mac actions will not work until it is back.');
   parts.push(PHONE_GUIDE);
-  const toolList = [...(vault ? TOOLS : []), ...(vault && mode === 'spanish' ? [SPANISH_TOOL] : []), ...(db ? [MAC_TOOL] : []), PHONE_TOOL];
+  const ghl = ghlConfig();
+  parts.push(ghl ? GHL_GUIDE : 'GoHighLevel: not connected. If he asks about GoHighLevel contacts, messages, bookings or deals, say it needs GHL_TOKEN and GHL_LOCATION_ID set in Vercel.');
+  const toolList = [...(vault ? TOOLS : []), ...(vault && mode === 'spanish' ? [SPANISH_TOOL] : []), ...(db ? [MAC_TOOL] : []), PHONE_TOOL, ...(ghl ? GHL_TOOLS : [])];
   const tools = toolList.length ? toolList : null;
   const system = parts.join('\n\n');
 
@@ -376,7 +379,7 @@ export default async function handler(req) {
             try { input = b.json ? JSON.parse(b.json) : {}; } catch { input = {}; }
             assistant.push({ type: 'tool_use', id: b.id, name: b.name, input });
             let out;
-            try { out = b.name === 'phone' ? (() => { const r = phoneAction(input.action, input.args); if (r.error) return { text: r.error, error: true }; controller.enqueue(encoder.encode(cardChunk(r.card))); carded = true; return { text: r.text }; })() : b.name === 'mac' ? (db ? await runMac(db, input.action, input.args) : { text: 'The desktop module is not connected.', error: true }) : vault ? await runTool(vault, b.name, input) : { text: 'The vault is not connected.', error: true }; }
+            try { out = b.name === 'phone' ? (() => { const r = phoneAction(input.action, input.args); if (r.error) return { text: r.error, error: true }; controller.enqueue(encoder.encode(cardChunk(r.card))); carded = true; return { text: r.text }; })() : b.name === 'mac' ? (db ? await runMac(db, input.action, input.args) : { text: 'The desktop module is not connected.', error: true }) : b.name.startsWith('ghl_') ? (ghl ? await runGhl(ghl, b.name, input) : { text: 'GoHighLevel is not connected.', error: true }) : vault ? await runTool(vault, b.name, input) : { text: 'The vault is not connected.', error: true }; }
             catch (e) { console.error('Tool failed', b.name, e.message); out = { text: `That failed: ${e.message.slice(0, 200)}`, error: true }; }
             console.log('tool', b.name, input.action || '', out.error ? 'error' : 'ok', String(out.text).slice(0, 160).replace(/\n/g, ' | '));
             const content = out.image ? [{ type: 'text', text: out.text }, { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: out.image } }] : out.text;

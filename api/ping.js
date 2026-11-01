@@ -1,5 +1,6 @@
 import { authorized, json, storageConfig } from './_atlas.js';
 import { vaultConfig } from './_vault.js';
+import { ghlConfig } from './_ghl.js';
 
 export const config = { runtime: 'edge' };
 
@@ -11,6 +12,7 @@ export default async function handler(req) {
     brain: !!process.env.ANTHROPIC_API_KEY,
     tts: !!(process.env.ELEVENLABS_API_KEY && process.env.ELEVENLABS_VOICE_ID),
     vault: !!vaultConfig(),
+    ghl: !!ghlConfig(),
     spanishVoice: !!(process.env.ELEVENLABS_API_KEY && process.env.ELEVENLABS_SPANISH_VOICE_ID)
   });
 }
