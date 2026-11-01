@@ -4,6 +4,10 @@ import { SPANISH_TUTOR, SPANISH_TOOL, loadSpanish, logSpanish } from './_spanish
 import { MAC_TOOL, DESKTOP_GUIDE, desktopDb, macOnline, markHot, runMac } from './_desktop.js';
 import { PHONE_TOOL, PHONE_GUIDE, phoneAction, cardChunk } from './_phone.js';
 import { GHL_TOOLS, GHL_GUIDE, ghlConfig, runGhl } from './_ghl.js';
+import { providerLinked } from './_oauthcfg.js';
+import { GOOGLE_TOOLS, GOOGLE_GUIDE, runGoogle } from './_google.js';
+import { SPOTIFY_TOOLS, SPOTIFY_GUIDE, runSpotify } from './_spotify.js';
+import { HEALTH_TOOL, HEALTH_GUIDE, runHealth, healthStatus } from './_health.js';
 
 export const config = { runtime: 'edge' };
 
@@ -289,7 +293,11 @@ export default async function handler(req) {
   parts.push(PHONE_GUIDE);
   const ghl = ghlConfig();
   parts.push(ghl ? GHL_GUIDE : 'GoHighLevel: not connected. If he asks about GoHighLevel contacts, messages, bookings or deals, say it needs GHL_TOKEN and GHL_LOCATION_ID set in Vercel.');
-  const toolList = [...(vault ? TOOLS : []), ...(vault && mode === 'spanish' ? [SPANISH_TOOL] : []), ...(db ? [MAC_TOOL] : []), PHONE_TOOL, ...(ghl ? GHL_TOOLS : [])];
+  const [googleOn, spotifyOn, healthLatest] = db ? await Promise.all([providerLinked('google'), providerLinked('spotify'), healthStatus()]) : [false, false, null];
+  parts.push(googleOn ? GOOGLE_GUIDE : 'Gmail and Google Calendar: not connected yet. If he asks about email or his Google calendar, say Google needs to be connected from the Connections panel.');
+  parts.push(spotifyOn ? SPOTIFY_GUIDE : 'Spotify: not connected yet. If he asks for music, say Spotify needs to be connected from the Connections panel (or use the Mac media controls if the Mac is online).');
+  parts.push(healthLatest ? `${HEALTH_GUIDE} Latest data: ${healthLatest}.` : 'Apple Health: not connected yet (no data from his iPhone Shortcut). If he asks about sleep or health, say the Health Shortcut needs to be set up.');
+  const toolList = [...(vault ? TOOLS : []), ...(vault && mode === 'spanish' ? [SPANISH_TOOL] : []), ...(db ? [MAC_TOOL] : []), PHONE_TOOL, ...(ghl ? GHL_TOOLS : []), ...(googleOn ? GOOGLE_TOOLS : []), ...(spotifyOn ? SPOTIFY_TOOLS : []), ...(healthLatest ? [HEALTH_TOOL] : [])];
   const tools = toolList.length ? toolList : null;
   const system = parts.join('\n\n');
 
@@ -379,7 +387,7 @@ export default async function handler(req) {
             try { input = b.json ? JSON.parse(b.json) : {}; } catch { input = {}; }
             assistant.push({ type: 'tool_use', id: b.id, name: b.name, input });
             let out;
-            try { out = b.name === 'phone' ? (() => { const r = phoneAction(input.action, input.args); if (r.error) return { text: r.error, error: true }; controller.enqueue(encoder.encode(cardChunk(r.card))); carded = true; return { text: r.text }; })() : b.name === 'mac' ? (db ? await runMac(db, input.action, input.args) : { text: 'The desktop module is not connected.', error: true }) : b.name.startsWith('ghl_') ? (ghl ? await runGhl(ghl, b.name, input) : { text: 'GoHighLevel is not connected.', error: true }) : vault ? await runTool(vault, b.name, input) : { text: 'The vault is not connected.', error: true }; }
+            try { out = b.name === 'phone' ? (() => { const r = phoneAction(input.action, input.args); if (r.error) return { text: r.error, error: true }; controller.enqueue(encoder.encode(cardChunk(r.card))); carded = true; return { text: r.text }; })() : b.name === 'mac' ? (db ? await runMac(db, input.action, input.args) : { text: 'The desktop module is not connected.', error: true }) : b.name.startsWith('ghl_') ? (ghl ? await runGhl(ghl, b.name, input) : { text: 'GoHighLevel is not connected.', error: true }) : (b.name.startsWith('gmail_') || b.name.startsWith('calendar_')) ? await runGoogle(b.name, input) : b.name.startsWith('spotify_') ? await runSpotify(b.name, input) : b.name === 'health_summary' ? await runHealth(input) : vault ? await runTool(vault, b.name, input) : { text: 'The vault is not connected.', error: true }; }
             catch (e) { console.error('Tool failed', b.name, e.message); out = { text: `That failed: ${e.message.slice(0, 200)}`, error: true }; }
             console.log('tool', b.name, input.action || '', out.error ? 'error' : 'ok', String(out.text).slice(0, 160).replace(/\n/g, ' | '));
             const content = out.image ? [{ type: 'text', text: out.text }, { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: out.image } }] : out.text;
