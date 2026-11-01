@@ -446,15 +446,15 @@ body.focus .c-over,body.focus .c-agents,body.focus .c-time,body.focus .c-quick,b
   $('#brief').addEventListener('click', () => send('Give me my executive briefing for right now: top three moves, what needs me, and one thing to protect.'));
 
   /* ---------- State-driven panels ---------- */
-  let sample = null, state = 'idle', mode = store.get('atlas.mode','work'), history = store.get('atlas.history', []), vaultOn = false, macOn = false;
-  const linkedCount = () => (sample ? 1 : 0) + (vaultOn ? 1 : 0) + (macOn ? 1 : 0);
+  let sample = null, state = 'idle', mode = store.get('atlas.mode','work'), history = store.get('atlas.history', []), vaultOn = false, macOn = false, ghlOn = false;
+  const linkedCount = () => (sample ? 1 : 0) + (vaultOn ? 1 : 0) + (macOn ? 1 : 0) + (ghlOn ? 1 : 0);
   const agentCanvases = [];
   function renderAgents(){
     const A = [
       ['Shield agent','shield','Active','ok'],
       ['Voice agent','mic', SRc || TTS ? 'Active' : 'Standby', SRc || TTS ? 'ok' : 'warn'],
       ['Core brain','core', sample ? 'Active' : 'Linking', sample ? 'ok' : 'warn'],
-      ['Comms agent','mail','Not linked','off'],
+      ['Comms agent','mail', ghlOn ? 'Reading GHL' : 'Not linked', ghlOn ? 'ok' : 'off'],
       ['Lead hunter','target','Not linked','off'],
       ['Memory agent','db', vaultOn ? 'Active' : 'Not linked', vaultOn ? 'ok' : 'off']
     ];
@@ -473,7 +473,7 @@ body.focus .c-over,body.focus .c-agents,body.focus .c-time,body.focus .c-quick,b
       ['AI core','core', sample ? 'Active' : 'Linking', sample ? 'ok' : 'warn'],
       ['Memory','db', `${msgs} messages stored`, 'blue'],
       ['Voice','mic', SRc ? 'Online' : TTS ? 'Speaks, type to talk' : 'Text only', SRc ? 'ok' : 'warn'],
-      ['Agents','bot', `${vaultOn ? 4 : 3} running`, 'ok'],
+      ['Agents','bot', `${3 + (vaultOn ? 1 : 0) + (ghlOn ? 1 : 0)} running`, 'ok'],
       ['Connections','plug', `${linkedCount()} of ${CONNS.length} linked`, 'warn'],
       ['Shield','shield','Guarding', 'ok']
     ];
@@ -482,14 +482,14 @@ body.focus .c-over,body.focus .c-agents,body.focus .c-time,body.focus .c-quick,b
   function renderConns(){
     $('#cgrid').innerHTML = '';
     CONNS.forEach(n => {
-      const on = (n === 'Claude' && !!sample) || (n === 'Obsidian' && vaultOn) || (n === 'MacBook' && macOn);
+      const on = (n === 'Claude' && !!sample) || (n === 'Obsidian' && vaultOn) || (n === 'MacBook' && macOn) || (n === 'GoHighLevel' && ghlOn);
       const b = document.createElement('button'); b.type = 'button'; b.className = 'conn';
       b.innerHTML = `<span class="cdot ${on ? 'on' : ''}"></span><div style="min-width:0"><span>${n}</span><small class="${on ? 'st-ok' : 'st-off'}">${on ? 'Connected' : 'Not linked'}</small></div>`;
       if (!on) b.addEventListener('click', () => send(`How do I connect ${n} to Atlas, and what will it let you do for me?`));
-      else b.addEventListener('click', () => send('What does being connected to Claude let you do for me right now?'));
+      else b.addEventListener('click', () => send(n === 'GoHighLevel' ? 'What can you see in GoHighLevel for me right now? Read-only.' : 'What does being connected to Claude let you do for me right now?'));
       $('#cgrid').appendChild(b);
     });
-    $('#conncount').textContent = `${sample ? 1 : 0} CONNECTED`;
+    $('#conncount').textContent = `${linkedCount()} CONNECTED`;
     $('#brainchip').textContent = sample ? 'Linked' : 'Locked';
   }
   function ringSVG(p){ const r = 42, C = 2 * Math.PI * r; return `<svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="${r}" fill="none" stroke="rgba(90,180,255,.15)" stroke-width="7"/><circle cx="50" cy="50" r="${r}" fill="none" stroke="#5CC8FF" stroke-width="7" stroke-linecap="round" stroke-dasharray="${C * p} ${C}" style="filter:drop-shadow(0 0 4px #2F8CFF)"/></svg>`; }
@@ -775,7 +775,7 @@ body.focus .c-over,body.focus .c-agents,body.focus .c-time,body.focus .c-quick,b
   async function wake(k){
     const p = await ping(k);
     if (!p) return false;
-    key = k; store.set('atlas.key', k); cloud = !!p.storage; ttsServer = !!p.tts; vaultOn = !!p.vault; sample = true;
+    key = k; store.set('atlas.key', k); cloud = !!p.storage; ttsServer = !!p.tts; vaultOn = !!p.vault; ghlOn = !!p.ghl; sample = true;
     $('#lock').hidden = true; feed.querySelectorAll('.offline').forEach(n => n.remove());
     renderAll(); pullHistory();
     if (cloud){ deskStatus(); scheduleDesk(); }
